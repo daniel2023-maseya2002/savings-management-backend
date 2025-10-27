@@ -1,9 +1,13 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from django.conf import settings
 
-# Create your models here.
 
+# -----------------------------
+# Custom User Model
+# -----------------------------
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -11,6 +15,10 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ["email"]
     USERNAME_FIELD = "username"
 
+
+# -----------------------------
+# Device Model
+# -----------------------------
 class Device(models.Model):
     STATUS_PENDING = "PENDING"
     STATUS_APPROVED = "APPROVED"
@@ -33,6 +41,10 @@ class Device(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.device_id} ({self.status})"
 
+
+# -----------------------------
+# Transaction Model
+# -----------------------------
 class Transaction(models.Model):
     TYPE_DEPOSIT = "DEPOSIT"
     TYPE_WITHDRAW = "WITHDRAW"
@@ -50,3 +62,39 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.tx_type} {self.amount} at {self.created_at}"
+
+
+# -----------------------------
+# One-Time Code Model (OTP)
+# -----------------------------
+class OneTimeCode(models.Model):
+    CHANNEL_EMAIL = "email"
+    CHANNEL_SMS = "sms"
+    CHANNEL_CHOICES = [
+        (CHANNEL_EMAIL, "Email"),
+        (CHANNEL_SMS, "SMS"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="otps")
+    code_hash = models.CharField(max_length=128)
+    salt = models.CharField(max_length=32)
+    channel = models.CharField(max_length=10, choices=CHANNEL_CHOICES)
+    destination = models.CharField(max_length=255)  # email or phone
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    attempts = models.IntegerField(default=0)
+    max_attempts = models.IntegerField(default=5)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    def mark_used(self):
+        self.used = True
+        self.save(update_fields=["used"])
