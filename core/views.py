@@ -57,7 +57,7 @@ class LoginView(APIView):
         }
         return Response(data, status=status.HTTP_200_OK)
 
-
+# Make the deposit 
 class DepositView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -85,6 +85,7 @@ class DepositView(APIView):
         return Response(resp, status=status.HTTP_201_CREATED)
 
 
+# Withdraw money
 class WithdrawView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -113,3 +114,12 @@ class WithdrawView(APIView):
         
         resp = TransactionResponseSerializer(tx).data
         return Response(resp, status=status.HTTP_201_CREATED)
+
+
+#  Check the balance
+class BalanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({"balance": str(user.balance)}, status=status.HTTP_200_OK)
