@@ -67,8 +67,8 @@ class RegisterView(APIView):
 # ------------------ LOGIN ------------------
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
-    throttle_scope = "login"               # scoped throttle (config in settings)
-    throttle_classes = []                  # set to ScopedRateThrottle where you configure
+    throttle_scope = "login"
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
         username = request.data.get("username")
@@ -85,19 +85,28 @@ class LoginView(APIView):
         if not user:
             return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # get or create device
+        # ✅ Admins & staff bypass device approval
+        if user.is_staff or user.is_superuser:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserDTO(user).data
+            }, status=status.HTTP_200_OK)
+
+        # Normal users: create or get device
         device, created = Device.objects.get_or_create(user=user, device_id=device_id)
         device.created_at = device.created_at or timezone.now()
         device.save(update_fields=["created_at"])
 
-        # enforce approval
+        # Enforce approval for non-admin users
         if device.status != Device.STATUS_APPROVED:
             return Response({
                 "detail": "Device not approved. Contact an admin to approve this device.",
                 "device_status": device.status
             }, status=status.HTTP_403_FORBIDDEN)
 
-        # issue tokens
+        # Issue tokens if approved
         refresh = RefreshToken.for_user(user)
         access = str(refresh.access_token)
         return Response({
@@ -105,6 +114,7 @@ class LoginView(APIView):
             "refresh": str(refresh),
             "user": UserDTO(user).data
         }, status=status.HTTP_200_OK)
+
 
 
 # ------------------ DEPOSIT ------------------
@@ -116,23 +126,28 @@ class DepositView(APIView):
         s.is_valid(raise_exception=True)
         amount = s.validated_data["amount"]
 
-        with transaction.atomic():
-            user = User.objects.select_for_update().get(pk=request.user.pk)
-            new_balance = (user.balance or Decimal("0.00")) + amount
-            user.balance = new_balance
-            user.save()
+        try:
+            with transaction.atomic():
+                user = User.objects.select_for_update().get(pk=request.user.pk)
+                new_balance = (user.balance or Decimal("0.00")) + amount
+                user.balance = new_balance
+                user.save()
 
-            tx = Transaction.objects.create(
-                user=user,
-                tx_type=Transaction.TYPE_DEPOSIT,
-                amount=amount,
-                balance_after=new_balance,
-                created_at=timezone.now(),
-            )
+                tx = Transaction.objects.create(
+                    user=user,
+                    tx_type=Transaction.TYPE_DEPOSIT,
+                    amount=amount,
+                    balance_after=new_balance,
+                    created_at=timezone.now(),
+                )
 
-        resp = TransactionResponseSerializer(tx).data
-        return Response(resp, status=status.HTTP_201_CREATED)
+            resp = TransactionResponseSerializer(tx).data
+            return Response(resp, status=status.HTTP_201_CREATED)
 
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # ------------------ WITHDRAW ------------------
 class WithdrawView(APIView):
@@ -200,67 +215,67 @@ class TransactionListView(generics.ListAPIView):
 
 
 # ------------------ PASSWORD RESET ------------------
-@method_decorator(csrf_exempt, name="dispatch")
-class PasswordResetRequestView(APIView):
-    permission_classes = [AllowAny]
+# @method_decorator(csrf_exempt, name="dispatch")
+# class PasswordResetRequestView(APIView):
+#     permission_classes = [AllowAny]
 
-    def post(self, request):
-        s = PasswordResetRequestSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        email = s.validated_data["email"]
+#     def post(self, request):
+#         s = PasswordResetRequestSerializer(data=request.data)
+#         s.is_valid(raise_exception=True)
+#         email = s.validated_data["email"]
 
-        try:
-            user = User.objects.get(email__iexact=email)
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "If an account with that email exists, a password reset email has been sent."},
-                status=status.HTTP_200_OK,
-            )
+#         try:
+#             user = User.objects.get(email__iexact=email)
+#         except User.DoesNotExist:
+#             return Response(
+#                 {"detail": "If an account with that email exists, a password reset email has been sent."},
+#                 status=status.HTTP_200_OK,
+#             )
 
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = default_token_generator.make_token(user)
-        reset_path = reverse("password_reset_confirm")
-        reset_url = f"{request.scheme}://{request.get_host()}{reset_path}?uid={uid}&token={token}"
+#         uid = urlsafe_base64_encode(force_bytes(user.pk))
+#         token = default_token_generator.make_token(user)
+#         reset_path = reverse("password_reset_confirm")
+#         reset_url = f"{request.scheme}://{request.get_host()}{reset_path}?uid={uid}&token={token}"
 
-        subject = "Password reset request"
-        message = (
-            f"Hi {user.username},\n\n"
-            "We received a request to reset your password.\n"
-            f"Reset link: {reset_url}\n\n"
-            "If you didn’t request this, you can ignore this email.\n\n"
-            "Thanks."
-        )
+#         subject = "Password reset request"
+#         message = (
+#             f"Hi {user.username},\n\n"
+#             "We received a request to reset your password.\n"
+#             f"Reset link: {reset_url}\n\n"
+#             "If you didn’t request this, you can ignore this email.\n\n"
+#             "Thanks."
+#         )
 
-        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
-        return Response(
-            {"detail": "If an account with that email exists, a password reset email has been sent."},
-            status=status.HTTP_200_OK,
-        )
+#         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+#         return Response(
+#             {"detail": "If an account with that email exists, a password reset email has been sent."},
+#             status=status.HTTP_200_OK,
+#         )
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class PasswordResetConfirmView(APIView):
-    permission_classes = [AllowAny]
+# @method_decorator(csrf_exempt, name="dispatch")
+# class PasswordResetConfirmView(APIView):
+#     permission_classes = [AllowAny]
 
-    def post(self, request):
-        s = PasswordResetConfirmSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        uid = s.validated_data["uid"]
-        token = s.validated_data["token"]
-        new_password = s.validated_data["new_password"]
+#     def post(self, request):
+#         s = PasswordResetConfirmSerializer(data=request.data)
+#         s.is_valid(raise_exception=True)
+#         uid = s.validated_data["uid"]
+#         token = s.validated_data["token"]
+#         new_password = s.validated_data["new_password"]
 
-        try:
-            uid_decoded = force_str(urlsafe_base64_decode(uid))
-            user = User.objects.get(pk=uid_decoded)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            return Response({"detail": "Invalid UID"}, status=status.HTTP_400_BAD_REQUEST)
+#         try:
+#             uid_decoded = force_str(urlsafe_base64_decode(uid))
+#             user = User.objects.get(pk=uid_decoded)
+#         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+#             return Response({"detail": "Invalid UID"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not default_token_generator.check_token(user, token):
-            return Response({"detail": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+#         if not default_token_generator.check_token(user, token):
+#             return Response({"detail": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user.set_password(new_password)
-        user.save()
-        return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
+#         user.set_password(new_password)
+#         user.save()
+#         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
 
 
 # ------------------ OTP ------------------
@@ -313,18 +328,18 @@ class OTPRequestView(APIView):
             send_otp_sms(dest, otp, expire)
 
         return Response({"detail": "If an account exists, an OTP was sent."}, status=status.HTTP_200_OK)
-
-
+    
 @method_decorator(csrf_exempt, name="dispatch")
 class OTPVerifyView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        print("DEBUG OTP VERIFY DATA:", request.data)
         s = OTPVerifySerializer(data=request.data)
         s.is_valid(raise_exception=True)
         identifier = s.validated_data["identifier"]
         otp = s.validated_data["otp"]
-        new_password = s.validated_data.get("new_password")
+        print("DEBUG identifier:", identifier, "otp:", otp)
 
         try:
             if "@" in identifier:
@@ -351,12 +366,43 @@ class OTPVerifyView(APIView):
 
         otc.mark_used()
 
-        if new_password:
-            user.set_password(new_password)
-            user.save()
-            return Response({"detail": "Password reset successful."}, status=status.HTTP_200_OK)
+        # ✅ store token directly on user instead of profile
+        reset_token = secrets.token_hex(16)
+        user.otp_reset_token = reset_token
+        user.save(update_fields=["otp_reset_token"])
 
-        return Response({"detail": "OTP verified."}, status=status.HTTP_200_OK)
+        return Response({
+            "detail": "OTP verified successfully.",
+            "reset_token": reset_token
+        }, status=status.HTTP_200_OK)
+
+@method_decorator(csrf_exempt, name="dispatch")
+class OTPNewPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        reset_token = request.data.get("reset_token")
+        new_password = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
+
+        if not reset_token:
+            return Response({"detail": "Missing reset token."}, status=status.HTTP_400_BAD_REQUEST)
+        if not new_password or not confirm_password:
+            return Response({"detail": "Please fill all fields."}, status=status.HTTP_400_BAD_REQUEST)
+        if new_password != confirm_password:
+            return Response({"detail": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # ✅ get from user.otp_reset_token (not user.profile)
+            user = User.objects.get(otp_reset_token=reset_token)
+        except User.DoesNotExist:
+            return Response({"detail": "Invalid or expired reset token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.otp_reset_token = None  # clear token after use
+        user.save(update_fields=["password", "otp_reset_token"])
+
+        return Response({"detail": "Password reset successful!"}, status=status.HTTP_200_OK)
 
 class DeviceVerifyView(UpdateAPIView):
     """

@@ -12,6 +12,7 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     password = models.CharField(max_length=255)
+    otp_reset_token = models.CharField(max_length=64, null=True, blank=True)
 
     REQUIRED_FIELDS = ["email"]
     USERNAME_FIELD = "username"

@@ -77,9 +77,9 @@ class OTPRequestSerializer(serializers.Serializer):
     channel = serializers.ChoiceField(choices=("email","sms"))
 
 class OTPVerifySerializer(serializers.Serializer):
-    identifier = serializers.CharField()
-    otp = serializers.CharField()
-    new_password = serializers.CharField(min_length=8, required=False)  # optional: reset flow
+    identifier = serializers.CharField(required=True, allow_blank=False)
+    otp = serializers.CharField(required=True, allow_blank=False)
+    new_password = serializers.CharField(min_length=8, required=False, allow_blank=True)
 
 class OneTimeCodeSerializer(serializers.ModelSerializer):
     class Meta:
