@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Device, Transaction
+from .models import Device, Transaction, OneTimeCode
 
 # Register your models here.
 
@@ -8,7 +8,9 @@ User = get_user_model()
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ("id", "username", "email", "balance", "is_staff", "is_superuser")
+    list_display = ("id", "username", "email", "balance", "is_active", "is_staff")
+    search_fields = ("username", "email")
+    readonly_fields = ("id",)
 
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
@@ -28,3 +30,9 @@ class DeviceAdmin(admin.ModelAdmin):
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "tx_type", "amount", "balance_after", "created_at")
+    search_fields = ("user_username", "user_email")
+
+@admin.register(OneTimeCode)
+class OneTimeCodeAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "channel", "destination", "created_at", "expires_at", "attempts")
+    search_fields = ("user_username", "user_email", "destination")

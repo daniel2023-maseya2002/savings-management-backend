@@ -16,9 +16,11 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     OTPRequestSerializer,
     OTPVerifySerializer,
+    UserDTO,
+    DeviceSerializer
 )
 from .models import Device, Transaction, OneTimeCode
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from django.db import transaction
 from decimal import Decimal
 from django.utils import timezone
@@ -34,6 +36,9 @@ from .notify import send_otp_email, send_otp_sms
 from datetime import timedelta
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework.generics import UpdateAPIView
+from rest_framework.throttling import ScopedRateThrottle
+from django.shortcuts import get_object_or_404
 
 User = get_user_model()
 
@@ -55,47 +60,44 @@ class RegisterView(APIView):
 # ------------------ LOGIN ------------------
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "login"               # scoped throttle (config in settings)
+    throttle_classes = []                  # set to ScopedRateThrottle where you configure
 
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+    def post(self, request, *args, **kwargs):
+        username = request.data.get("username")
+        password = request.data.get("password")
+        device_id = request.data.get("device_id")
 
-        username = serializer.validated_data.get("username")
-        password = serializer.validated_data.get("password")
-        device_id = serializer.validated_data.get("device_id")
+        if not username or not password:
+            return Response({"detail": "username and password required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not device_id:
+            return Response({"detail": "device_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         user = authenticate(request, username=username, password=password)
         if not user:
-            return Response(
-                {"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
-            )
+            return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Get or create device
+        # get or create device
         device, created = Device.objects.get_or_create(user=user, device_id=device_id)
+        device.created_at = device.created_at or timezone.now()
+        device.save(update_fields=["created_at"])
 
-        if device.status == Device.STATUS_PENDING:
-            return Response(
-                {"detail": "Device pending approval"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        if device.status == Device.STATUS_REJECTED:
-            return Response(
-                {"detail": "Device rejected"}, status=status.HTTP_403_FORBIDDEN
-            )
+        # enforce approval
+        if device.status != Device.STATUS_APPROVED:
+            return Response({
+                "detail": "Device not approved. Contact an admin to approve this device.",
+                "device_status": device.status
+            }, status=status.HTTP_403_FORBIDDEN)
 
-        # Approved -> issue tokens
+        # issue tokens
         refresh = RefreshToken.for_user(user)
-        data = {
-            "access": str(refresh.access_token),
+        access = str(refresh.access_token)
+        return Response({
+            "access": access,
             "refresh": str(refresh),
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "balance": str(user.balance),
-            },
-        }
-        return Response(data, status=status.HTTP_200_OK)
+            "user": UserDTO(user).data
+        }, status=status.HTTP_200_OK)
 
 
 # ------------------ DEPOSIT ------------------
@@ -258,6 +260,8 @@ class PasswordResetConfirmView(APIView):
 @method_decorator(csrf_exempt, name="dispatch")
 class OTPRequestView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "otp"
 
     def post(self, request):
         s = OTPRequestSerializer(data=request.data)
@@ -346,3 +350,87 @@ class OTPVerifyView(APIView):
             return Response({"detail": "Password reset successful."}, status=status.HTTP_200_OK)
 
         return Response({"detail": "OTP verified."}, status=status.HTTP_200_OK)
+
+class DeviceVerifyView(UpdateAPIView):
+    """
+    Allows an admin to verify or reject a user's device.
+    Example:
+      PATCH /api/admin/devices/<uuid>/verify/
+      Body: { "status": "APPROVED" }  or  { "status": "REJECTED" }
+    """
+    permission_classes = [IsAdminUser]
+    queryset = Device.objects.all()
+    serializer_class = DeviceSerializer
+    lookup_field = "id"
+
+    def patch(self, request, *args, **kwargs):
+        device = self.get_object()
+        status_value = request.data.get("status")
+
+        if status_value not in [Device.STATUS_APPROVED, Device.STATUS_REJECTED]:
+            return Response(
+                {"detail": "Invalid status. Must be 'APPROVED' or 'REJECTED'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        device.status = status_value
+        device.save(update_fields=["status"])
+
+        return Response(
+            {"detail": f"Device {status_value.lower()} successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        """
+        Body: {"refresh": "<refresh_token>"}
+        This blacklists the provided refresh token
+        """
+        refresh_token = request.data.get("refresh")
+        if not refresh_token:
+            return Response({"detail": "refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist() # <-- raises if blacklisting fails
+        except Exception:
+            return Response({"detail": "Invalid token or token already blacklisted."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({"detail": "Logout successful."}, status=status.HTTP_200_OK)
+    
+class UserDeviceListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeviceSerializer
+
+    def get_queryset(self):
+        # only devices belonging to the authenticated user
+        return Device.objects.filter(user=self.request.user).order_by("-created_at")
+
+class DeviceRequestVerificationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, id, *args, **kwargs):
+        # `id` is device UUID in path
+        device = get_object_or_404(Device, id=id, user=request.user)
+
+        if device.status == Device.STATUS_APPROVED:
+            return Response({"detail": "Device already approved."}, status=status.HTTP_400_BAD_REQUEST)
+
+        device.status = Device.STATUS_PENDING
+        device.created_at = device.created_at or timezone.now()
+        device.save(update_fields=["status"])
+
+        return Response({"detail": "Verification requested."}, status=status.HTTP_200_OK)
+
+class DeviceAdminUpdateView(UpdateAPIView):
+    """
+    Admin can PATCH to set status to APPROVED or REJECTED.
+    PATCH body: {"status": "APPROVED"} or {"status":"REJECTED"}
+    """
+    permission_classes = [IsAdminUser]
+    queryset = Device.objects.all()
+    serializer_class = DeviceSerializer
+    lookup_field = "id"

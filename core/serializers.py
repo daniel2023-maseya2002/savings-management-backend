@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Device, Transaction
+from .models import Device, Transaction, OneTimeCode
 from decimal import Decimal
 from rest_framework import serializers
 from django.conf import settings
@@ -28,10 +28,18 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField()
     device_id = serializers.CharField()
 
+class UserDTO(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "balance")
+        read_only_fields = fields
+
 class DeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
-        fields = "__all__"
+        fields = ("id", "user", "device_id", "status", "created_at", "verified_at")
+        read_only_fields = ("id", "user", "created_at", "verified_at")
+
 
 class TransactionSerializer(serializers.ModelSerializer):
     class meta:
@@ -72,3 +80,9 @@ class OTPVerifySerializer(serializers.Serializer):
     identifier = serializers.CharField()
     otp = serializers.CharField()
     new_password = serializers.CharField(min_length=8, required=False)  # optional: reset flow
+
+class OneTimeCodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OneTimeCode
+        fields = ("id", "channel", "destination", "created_at", "expires_at", "used", "attempts")
+        read_only_fields = fields

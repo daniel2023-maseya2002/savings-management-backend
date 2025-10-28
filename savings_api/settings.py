@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -144,12 +145,24 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+     "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/min",
+        "user": "600/min",
+        "otp": "5/min",
+        "login": "10/min",
+    },
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "AUTH_HEADER_TYPES": ("Bearer",),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 CORS_ALLOWED_ORIGINS = [
@@ -168,3 +181,11 @@ EMAIL_HOST_USER = "daniel.mubu21@gmail.com"        # 👈 your Gmail or custom e
 EMAIL_HOST_PASSWORD = "cyzwwiettfpxwsuc"      # 👈 not your Gmail password!
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+# use PBKDF2 with SHA-512 as required by the brief
+PASSWORD_HASHERS = [
+    "savings_api.hashers.PBKDF2SHA512PasswordHasher",  # <-- replace 'project' with your project package
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",  # fallback
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]

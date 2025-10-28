@@ -11,6 +11,7 @@ from django.conf import settings
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    password = models.CharField(max_length=255)
 
     REQUIRED_FIELDS = ["email"]
     USERNAME_FIELD = "username"
