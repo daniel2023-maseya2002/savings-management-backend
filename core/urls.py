@@ -4,7 +4,8 @@ from .views import(
     TransactionListView,
     OTPVerifyView, OTPRequestView, DeviceVerifyView, UserDeviceListView,
     DeviceAdminUpdateView, DeviceRequestVerificationView, LogoutView,
-    PushSubscriptionCreateView, FCMDeviceCreateView, OTPNewPasswordView,
+    PushSubscriptionCreateView, FCMDeviceCreateView, OTPNewPasswordView, AdminDeviceListView,
+    admin_approve_device, admin_reject_device
 ) 
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -37,6 +38,11 @@ path("auth/logout/", LogoutView.as_view(), name="logout"),
 path("push/subscribe/", PushSubscriptionCreateView.as_view(), name="push_subscribe"),
 
 path("fcm/register/", FCMDeviceCreateView.as_view(), name="fcm_register"),
+
+# Admin
+path("admin/devices/", AdminDeviceListView.as_view(), name="admin_devices"),
+path("admin/devices/<uuid:pk>/approve/", admin_approve_device, name="admin_device_approve"),
+path("admin/devices/<uuid:pk>/reject/", admin_reject_device, name="admin_device_reject")
 
 
 ]

@@ -22,6 +22,8 @@ from .serializers import (
     NotificationSerializer,
     PushSubscriptionSerializer,
     FCMDeviceSerializer,
+    DeviceCreateSerializer, 
+    DeviceAdminSerializer,
 )
 from .models import Device, Transaction, OneTimeCode, Notification, PushSubscription
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
@@ -46,8 +48,13 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Sum, Count, F, Q
 from datetime import timedelta
 from django.db.models.functions import TruncMonth
+from rest_framework.decorators import api_view, permission_classes
 
 User = get_user_model()
+
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
 
 
 # ------------------ REGISTER ------------------
@@ -461,6 +468,14 @@ class UserDeviceListView(generics.ListAPIView):
     def get_queryset(self):
         # only devices belonging to the authenticated user
         return Device.objects.filter(user=self.request.user).order_by("-created_at")
+    
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return DeviceCreateSerializer
+        return DeviceSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 class DeviceRequestVerificationView(APIView):
     permission_classes = [IsAuthenticated]
@@ -569,3 +584,39 @@ class FCMDeviceCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+# Admin: list all pending devices (or all devices)
+class AdminDeviceListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    serializer_class = DeviceAdminSerializer
+
+    def get_queryset(self):
+        status_filter = self.request.query_params.get("status")
+        qs = Device.objects.all().order_by("-created_at")
+        if status_filter:
+            qs = qs.filter(status=status_filter.upper())
+        return qs
+
+# Admin: approve / reject device
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
+def admin_approve_device(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    if device.status == Device.STATUS_APPROVED:
+        return Response({"detail": "Already approved."}, status=status.HTTP_400_BAD_REQUEST)
+    device.status = Device.STATUS_APPROVED
+    device.verified_at = timezone.now()
+    device.save(update_fields=["status", "verified_at"])
+
+    # optional: send notification or create transaction log (not required)
+    return Response({"detail": "Device approved.", "id": str(device.id)})
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
+def admin_reject_device(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    if device.status == Device.STATUS_REJECTED:
+        return Response({"detail": "Already rejected."}, status=status.HTTP_400_BAD_REQUEST)
+    device.status = Device.STATUS_REJECTED
+    device.save(update_fields=["status"])
+    return Response({"detail": "Device rejected.", "id": str(device.id)})

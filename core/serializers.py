@@ -35,11 +35,30 @@ class UserDTO(serializers.ModelSerializer):
         read_only_fields = fields
 
 class DeviceSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
     class Meta:
         model = Device
-        fields = ("id", "user", "device_id", "status", "created_at", "verified_at")
-        read_only_fields = ("id", "user", "created_at", "verified_at")
+        fields = ["id", "user", "username", "device_id", "status", "created_at", "verified_at"]
+        read_only_fields = ["id", "user", "status", "created_at", "verified_at", "username"]
 
+class DeviceCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Device
+        fields = ["device_id"]
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        # if device exists for this return existing? we'll create but unique_together prevents dup
+        return Device.objects.create(user=user, **validated_data)
+
+class DeviceAdminSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+
+    class Meta:
+        model = Device
+        fields = ["id", "user", "username", "user_email", "device_id", "status", "created_at", "verified_at"]
+        read_only_fields = ["id", "user", "username", "user_email", "device_id", "created_at", "verified_at"]
 
 class TransactionSerializer(serializers.ModelSerializer):
     class meta:
