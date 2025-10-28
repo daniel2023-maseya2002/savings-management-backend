@@ -2,8 +2,12 @@ import secrets
 import hashlib
 import hmac
 import time
+import json
+from pywebpush import webpush, WebPushException
 from django.utils import timezone
 from datetime import timedelta
+from django.conf import settings
+from pyfcm import FCMNotification
 
 OTP_LENGTH = 6
 OTP_TTL = timedelta(minutes=10)
@@ -36,3 +40,50 @@ def verify_otp(provided_otp: str, stored_hash: str, stored_salt: str):
 
 def expires_at_now():
     return timezone.now() + OTP_TTL
+
+
+def send_webpush(subscription, payload: dict):
+    """
+    subscription: PushSubscription instance
+    payload: dict with 'title' and 'body' (and optional data)
+    """
+    if not getattr(settings, "SEND_WEBPUSH_NOTIFICATIONS", False):
+        return False
+
+    try:
+        webpush(
+            subscription_info={
+                "endpoint": subscription.endpoint,
+                "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
+            },
+            data=json.dumps(payload),
+            vapid_private_key=settings.VAPID_PRIVATE_KEY,
+            vapid_claims=settings.VAPID_CLAIMS,
+        )
+        return True
+    except WebPushException as exc:
+        # log exception; in production consider deleting invalid subscriptions
+        # print("WebPush failed:", exc)
+        return False
+
+_push_service = None
+def get_push_service():
+    global _push_service
+    if _push_service is None:
+        _push_service = FCMNotification(api_key=settings.FCM_SERVER_KEY)
+    return _push_service
+
+def send_fcm_notification(registration_id, title, body, data_message=None):
+    if not getattr(settings, "SEND_FCM_NOTIFICATIONS", False):
+        return None
+    push_service = get_push_service()
+    try:
+        return push_service.notify_single_device(
+            registration_id=registration_id,
+            message_title=title,
+            message_body=body,
+            data_message=data_message or {}
+        )
+    except Exception as e:
+        # log
+        return None

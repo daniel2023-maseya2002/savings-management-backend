@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Device, Transaction, OneTimeCode
+from .models import Device, Transaction, OneTimeCode, Notification,  PushSubscription, FCMDevice
 from decimal import Decimal
 from rest_framework import serializers
 from django.conf import settings
@@ -86,3 +86,26 @@ class OneTimeCodeSerializer(serializers.ModelSerializer):
         model = OneTimeCode
         fields = ("id", "channel", "destination", "created_at", "expires_at", "used", "attempts")
         read_only_fields = fields
+
+class StatsSerializer(serializers.Serializer):
+    total_deposits = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_withdrawals = serializers.DecimalField(max_digits=12, decimal_places=2)
+    tx_count = serializers.IntegerField()
+    latest_balance = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ('id','notif_type','title','message','created_at','read','meta')
+
+
+class PushSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PushSubscription
+        fields = ("id", "endpoint", "p256dh", "auth")
+
+class FCMDeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FCMDevice
+        fields = ("id", "registration_id", "device_info")
+

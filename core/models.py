@@ -99,3 +99,48 @@ class OneTimeCode(models.Model):
     def mark_used(self):
         self.used = True
         self.save(update_fields=["used"])
+
+# -----------------------------
+# Notification
+# -----------------------------
+
+class Notification(models.Model):
+    TYPE_LOW_BALANCE = "LOW_BALANCE"
+    TYPE_DEPOSIT = "DEPOSIT_CONFIRMED"
+    TYPE_WITHDRAW = "WITHDRAW_ALERT"
+    TYPE_DEVICE = "DEVICE_EVENT"
+
+    NOTIF_CHOICES = [
+        (TYPE_LOW_BALANCE, "Low balance"),
+        (TYPE_DEPOSIT, "Deposit confirmed"),
+        (TYPE_WITHDRAW, "Withdraw alert"),
+        (TYPE_DEVICE, "Device event"),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+    notif_type = models.CharField(max_length=32, choices=NOTIF_CHOICES)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    read = models.BooleanField(default=False)
+    meta = models.JSONField(default=dict, blank=True)
+
+from django.db import models
+from django.conf import settings
+
+class PushSubscription(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions")
+    endpoint = models.TextField()
+    p256dh = models.CharField(max_length=512)
+    auth = models.CharField(max_length=256)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} - {self.endpoint[:60]}"
+    
+class FCMDevice(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="fcm_devices")
+    registration_id = models.CharField(max_length=512, unique=True)
+    device_info = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+

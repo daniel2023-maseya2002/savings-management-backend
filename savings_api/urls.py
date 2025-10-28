@@ -21,3 +21,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/", include("core.urls")),
 ]
+
+FCM_SERVER_KEY = "<your_firebase_server_key_here>"
+SEND_FCM_NOTIFICATIONS = True

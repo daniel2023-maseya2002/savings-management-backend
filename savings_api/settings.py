@@ -155,6 +155,8 @@ REST_FRAMEWORK = {
         "otp": "5/min",
         "login": "10/min",
     },
+    
+    'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
 }
 
 SIMPLE_JWT = {
@@ -189,3 +191,17 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
     "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
+
+LOW_BALANCE_THRESHOLD = 50.00
+
+# VAPID keys — generate once (instructions below)
+VAPID_PUBLIC_KEY = "<paste_public_vapid_here>"
+VAPID_PRIVATE_KEY = "<paste_private_vapid_here>"
+VAPID_CLAIMS = {"sub": "mailto:noreply@example.com"}
+
+# Optional: whether to actually send push in dev (sync)
+SEND_WEBPUSH_NOTIFICATIONS = True
+
+# Firebase Cloud Messaging (FCM)
+SEND_FCM_NOTIFICATIONS = True
+FCM_SERVER_KEY = "<YOUR_FIREBASE_SERVER_KEY>"

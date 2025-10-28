@@ -17,9 +17,13 @@ from .serializers import (
     OTPRequestSerializer,
     OTPVerifySerializer,
     UserDTO,
-    DeviceSerializer
+    DeviceSerializer,
+    StatsSerializer,
+    NotificationSerializer,
+    PushSubscriptionSerializer,
+    FCMDeviceSerializer,
 )
-from .models import Device, Transaction, OneTimeCode
+from .models import Device, Transaction, OneTimeCode, Notification, PushSubscription
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from django.db import transaction
 from decimal import Decimal
@@ -39,6 +43,9 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.generics import UpdateAPIView
 from rest_framework.throttling import ScopedRateThrottle
 from django.shortcuts import get_object_or_404
+from django.db.models import Sum, Count, F, Q
+from datetime import timedelta
+from django.db.models.functions import TruncMonth
 
 User = get_user_model()
 
@@ -434,3 +441,85 @@ class DeviceAdminUpdateView(UpdateAPIView):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
     lookup_field = "id"
+
+class AnalyticsView(APIView):
+    """
+    GET /api/savings/analytics/  (admin or authenticated depending on needs)
+    Returns basic stats and monthly aggregated series for charts.
+    """
+    permission_classes = [IsAuthenticated]   # change to IsAdminUser if only admins
+
+    def get(self, request):
+        user = request.user
+
+        qs = Transaction.objects.filter(user=user)  # per-user stats
+        totals = qs.aggregate(
+            total_deposits=Sum('amount', filter=Q(tx_type='DEPOSIT')),
+            total_withdrawals=Sum('amount', filter=Q(tx_type='WITHDRAW')),
+            tx_count=Count('id'),
+        )
+
+        # fallback 0
+        total_deposits = totals['total_deposits'] or 0
+        total_withdrawals = totals['total_withdrawals'] or 0
+        tx_count = totals['tx_count'] or 0
+
+        # latest balance can come from user's balance field
+        latest_balance = getattr(user, 'balance', 0)
+
+        # monthly series for last 6 months
+        six_months_ago = timezone.now() - timedelta(days=30 * 6)
+        monthly = (
+            qs.filter(created_at__gte=six_months_ago)
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(total=Sum('amount', filter=Q(tx_type='DEPOSIT')), withdrawals=Sum('amount', filter=Q(tx_type='WITHDRAW')))
+            .order_by('month')
+        )
+        # Format monthly series as list of dicts
+        monthly_series = [
+            {
+                'month': m['month'].date().isoformat(),
+                'deposits': m.get('total') or 0,
+                'withdrawals': m.get('withdrawals') or 0,
+            }
+            for m in monthly
+        ]
+
+        data = {
+            'total_deposits': total_deposits,
+            'total_withdrawals': total_withdrawals,
+            'tx_count': tx_count,
+            'latest_balance': latest_balance,
+            'monthly': monthly_series,
+        }
+        # validate & return
+        serializer = StatsSerializer({
+            'total_deposits': data['total_deposits'],
+            'total_withdrawals': data['total_withdrawals'],
+            'tx_count': data['tx_count'],
+            'latest_balance': data['latest_balance'],
+        })
+        return Response({'summary': serializer.data, 'monthly': monthly_series})
+
+class NotificationListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+    
+
+class PushSubscriptionCreateView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PushSubscriptionSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class FCMDeviceCreateView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = FCMDeviceSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

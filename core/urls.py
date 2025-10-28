@@ -4,6 +4,7 @@ from .views import(
     TransactionListView, PasswordResetConfirmView, PasswordResetRequestView, 
     OTPVerifyView, OTPRequestView, DeviceVerifyView, UserDeviceListView,
     DeviceAdminUpdateView, DeviceRequestVerificationView, LogoutView,
+    PushSubscriptionCreateView, FCMDeviceCreateView,
 ) 
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -31,4 +32,10 @@ path("auth/admin/devices/<uuid:id>/", DeviceAdminUpdateView.as_view(), name="adm
 
 # logout
 path("auth/logout/", LogoutView.as_view(), name="logout"),
+
+path("push/subscribe/", PushSubscriptionCreateView.as_view(), name="push_subscribe"),
+
+path("fcm/register/", FCMDeviceCreateView.as_view(), name="fcm_register"),
+
+
 ]
