@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-as1nxm@b*&339*hakqgj0hepa=p#=fkqxq163*!!ch8p+t@pn8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver"]
 
 
 # Application definition
@@ -202,7 +202,7 @@ VAPID_PRIVATE_KEY = "<paste_private_vapid_here>"
 VAPID_CLAIMS = {"sub": "mailto:noreply@example.com"}
 
 # Optional: whether to actually send push in dev (sync)
-SEND_WEBPUSH_NOTIFICATIONS = True
+SEND_WEBPUSH_NOTIFICATIONS = False
 
 # Firebase Cloud Messaging (FCM)
 SEND_FCM_NOTIFICATIONS = True

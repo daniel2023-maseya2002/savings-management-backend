@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Device, Transaction, OneTimeCode
+from .models import Device, Transaction, OneTimeCode, LoginActivity
 
 # Register your models here.
 
@@ -36,3 +36,9 @@ class TransactionAdmin(admin.ModelAdmin):
 class OneTimeCodeAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "channel", "destination", "created_at", "expires_at", "attempts")
     search_fields = ("user_username", "user_email", "destination")
+
+@admin.register(LoginActivity)
+class LoginActivityAdmin(admin.ModelAdmin):
+    list_display = ("user", "device_id", "ip_address", "created_at", "success", "message")
+    list_filter = ("success", "created_at")
+    search_fields = ("user__username", "user__email", "device_id", "ip_address", "message")

@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.conf import settings
 
+User = settings.AUTH_USER_MODEL
+
 
 # -----------------------------
 # Custom User Model
@@ -118,13 +120,40 @@ class Notification(models.Model):
         (TYPE_DEVICE, "Device event"),
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
     notif_type = models.CharField(max_length=32, choices=NOTIF_CHOICES)
     title = models.CharField(max_length=200)
     message = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    read = models.BooleanField(default=False)
     meta = models.JSONField(default=dict, blank=True)
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def mark_read(self):
+        if not self.read:
+            self.read = True
+            self.save(update_fields=["read"])
+
+
+# -----------------------------
+# Low Balance
+# -----------------------------
+
+class LowBalanceRule(models.Model):
+    """
+    A server-side rule for low-balance alerts.
+    You can create a simple global rule (user=None) or per-user rule (user=User).
+    """
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="low_balance_rules", null=True, blank=True)
+    threshold = models.DecimalField(max_digits=12, decimal_places=2, help_text="Trigger when balance <= threshold")
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 from django.db import models
 from django.conf import settings
@@ -144,4 +173,24 @@ class FCMDevice(models.Model):
     registration_id = models.CharField(max_length=512, unique=True)
     device_info = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+
+class LoginActivity(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="login_activities")
+    device_id = models.CharField(max_length=255, blank=True, default="")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, default="")
+    success = models.BooleanField(default=True)  # in case you want to also log failures later
+    message = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} @ {self.created_at} (device={self.device_id})"
 

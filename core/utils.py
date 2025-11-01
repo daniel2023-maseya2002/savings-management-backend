@@ -42,7 +42,7 @@ def expires_at_now():
     return timezone.now() + OTP_TTL
 
 
-def send_webpush(subscription, payload: dict):
+def send_webpush(subscription, payload: dict, *args, **kwargs):
     """
     subscription: PushSubscription instance
     payload: dict with 'title' and 'body' (and optional data)
@@ -62,9 +62,9 @@ def send_webpush(subscription, payload: dict):
         )
         return True
     except WebPushException as exc:
-        # log exception; in production consider deleting invalid subscriptions
-        # print("WebPush failed:", exc)
+        print("WebPush failed:", exc)
         return False
+
 
 _push_service = None
 def get_push_service():
@@ -87,3 +87,10 @@ def send_fcm_notification(registration_id, title, body, data_message=None):
     except Exception as e:
         # log
         return None
+    
+def get_client_ip(request):
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    if xff:
+        # “X-Forwarded-For: client, proxy1, proxy2”
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
