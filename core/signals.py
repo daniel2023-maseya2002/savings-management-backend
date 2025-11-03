@@ -4,7 +4,11 @@ from django.dispatch import receiver
 from django.conf import settings
 from django.core.mail import send_mail
 from .models import Transaction, Notification, PushSubscription, FCMDevice, LowBalanceRule
-from .utils import send_webpush, send_fcm_notification
+from core.utils.push_utils import send_webpush, send_fcm_notification
+from core.utils.notify_admins import notify_admins
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 def safe_send_mail(subject, message, recipient_list):
     def _send():
@@ -73,3 +77,22 @@ def transaction_post_save(sender, instance: Transaction, created, **kwargs):
 
     except Exception as e:
         print("Transaction signal error:", e)
+
+@receiver(post_save, sender=User)
+def user_event_notifier(sender, instance, created, **kwargs):
+    if created:
+        # 🆕 When a new user registers
+        notify_admins(
+            notif_type=Notification.TYPE_NEW_USER,
+            title="🆕 New User Registered",
+            message=f"{instance.username} has created an account and awaits approval.",
+            meta={"user_id": instance.id, "username": instance.username}
+        )
+    elif not instance.is_active:
+        # 🚫 When a user gets blocked/deactivated
+        notify_admins(
+            notif_type=Notification.TYPE_USER_BLOCKED,
+            title="🚫 User Blocked",
+            message=f"{instance.username} has been blocked by an admin.",
+            meta={"user_id": instance.id, "username": instance.username}
+        )

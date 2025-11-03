@@ -1,0 +1,69 @@
+{% extends "emails/base_email.html" %}
+{% load humanize %}
+
+{% block content %}
+  <!-- Header -->
+  <div style="text-align:center; margin-bottom:24px;">
+    <h2 style="font-size:22px; color:#38bdf8; margin:0;">
+      🔐 Your Verification Code
+    </h2>
+    <p style="color:#94a3b8; font-size:13px; margin-top:6px;">
+      Secure Sign-In · Kode y’emeza
+    </p>
+  </div>
+
+  <!-- Message block -->
+  <div style="
+    background:rgba(30,41,59,0.5);
+    border:1px solid rgba(148,163,184,0.15);
+    border-radius:16px;
+    padding:20px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.05);
+    backdrop-filter:blur(10px);
+  ">
+    <!-- English -->
+    <p style="color:#e2e8f0; font-size:15px; margin:0 0 12px 0;">
+      Hi <strong>{{ user.first_name|default:user.username }}</strong>,
+    </p>
+    <p style="color:#cbd5e1; font-size:14px; margin:0 0 20px 0;">
+      Your one-time verification code for CreditJambo is:
+    </p>
+
+    <!-- OTP Pill -->
+    <div style="text-align:center; margin:12px 0 20px 0;">
+      <div style="
+        display:inline-block;
+        padding:14px 26px;
+        border-radius:14px;
+        font-weight:800;
+        font-size:26px;
+        letter-spacing:6px;
+        color:#ffffff;
+        background:linear-gradient(90deg,#06b6d4,#3b82f6,#8b5cf6);
+        box-shadow:0 2px 12px rgba(59,130,246,0.4);
+      ">
+        {{ otp }}
+      </div>
+      <p style="margin-top:10px; color:#94a3b8; font-size:13px;">
+        This code expires in <strong>10 minutes</strong>.
+      </p>
+    </div>
+
+    <!-- Kinyarwanda -->
+    <hr style="border:none; border-top:1px solid rgba(148,163,184,0.15); margin:20px 0;">
+    <p style="color:#e2e8f0; font-size:15px; margin:0 0 10px 0;">
+      Muraho <strong>{{ user.first_name|default:user.username }}</strong>,
+    </p>
+    <p style="color:#cbd5e1; font-size:14px; margin:0;">
+      Iyi ni kode nshuro-imwe (OTP) yawe yo kwinjira muri CreditJambo. Isha bukeya mu <strong>minota 10</strong>.
+    </p>
+  </div>
+
+  <!-- Security tip -->
+  <div style="margin-top:24px; text-align:center;">
+    <p style="font-size:13px; color:#64748b; line-height:1.5; margin:0;">
+      ⚠️ Never share this code with anyone — even CreditJambo staff.  
+      If you didn’t request this, please ignore this email.
+    </p>
+  </div>
+{% endblock %}

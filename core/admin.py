@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Device, Transaction, OneTimeCode, LoginActivity
+from .models import Device, Transaction, OneTimeCode, LoginActivity, LowBalanceRule 
 
 # Register your models here.
 
@@ -42,3 +42,9 @@ class LoginActivityAdmin(admin.ModelAdmin):
     list_display = ("user", "device_id", "ip_address", "created_at", "success", "message")
     list_filter = ("success", "created_at")
     search_fields = ("user__username", "user__email", "device_id", "ip_address", "message")
+
+@admin.register(LowBalanceRule)
+class LowBalanceRuleAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "threshold", "enabled", "created_at")
+    list_filter = ("enabled",)
+    search_fields = ("user__username", "user__email")

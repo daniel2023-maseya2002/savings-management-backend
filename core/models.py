@@ -113,14 +113,29 @@ class Notification(models.Model):
     TYPE_WITHDRAW = "WITHDRAW_ALERT"
     TYPE_DEVICE = "DEVICE_EVENT"
 
+    # 🆕 Admin/system event types
+    TYPE_NEW_USER = "NEW_USER"
+    TYPE_USER_APPROVED = "USER_APPROVAL_REQUIRED"
+    TYPE_USER_BLOCKED = "USER_BLOCKED"
+    TYPE_PASSWORD_RESET = "PASSWORD_RESET"
+
     NOTIF_CHOICES = [
         (TYPE_LOW_BALANCE, "Low balance"),
         (TYPE_DEPOSIT, "Deposit confirmed"),
         (TYPE_WITHDRAW, "Withdraw alert"),
         (TYPE_DEVICE, "Device event"),
+        # 🆕
+        (TYPE_NEW_USER, "New user registered"),
+        (TYPE_USER_APPROVED, "User approval required"),
+        (TYPE_USER_BLOCKED, "User blocked"),
+        (TYPE_PASSWORD_RESET, "Password reset"),
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications"
+    )
     notif_type = models.CharField(max_length=32, choices=NOTIF_CHOICES)
     title = models.CharField(max_length=200)
     message = models.TextField()
@@ -151,6 +166,8 @@ class LowBalanceRule(models.Model):
     threshold = models.DecimalField(max_digits=12, decimal_places=2, help_text="Trigger when balance <= threshold")
     enabled = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
+    last_low_balance_reminder = models.DateField(null=True, blank=True)
+
 
     class Meta:
         ordering = ["-created_at"]

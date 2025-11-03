@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'rest_framework_simplejwt.token_blacklist',
+    'django.contrib.humanize',
 ]
 
 MIDDLEWARE = [
@@ -65,7 +66,7 @@ ROOT_URLCONF = 'savings_api.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -183,7 +184,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "daniel.mubu21@gmail.com"        # 👈 your Gmail or custom email
 EMAIL_HOST_PASSWORD = "cyzwwiettfpxwsuc"      # 👈 not your Gmail password!
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+DEFAULT_FROM_EMAIL = "CreditJambo <no-reply@creditjambo.com>"
 
 # use PBKDF2 with SHA-512 as required by the brief
 PASSWORD_HASHERS = [

@@ -59,6 +59,11 @@ from rest_framework.decorators import api_view, permission_classes, action
 from django.utils.dateparse import parse_datetime
 from rest_framework.filters import SearchFilter, OrderingFilter
 from core import models
+from .utils.email_utils import send_branded_email
+from  rest_framework.pagination import PageNumberPagination
+from .utils.email_utils import send_branded_email
+from core.utils.notify_admins import notify_admins
+from .utils import create_user_notification  # helper from earlier
 
 User = get_user_model()
 
@@ -89,6 +94,14 @@ class RegisterView(APIView):
                 defaults={"status": Device.STATUS_PENDING},
             )
 
+        # 🔔 Notify admins about new user registration (approval required)
+        notify_admins(
+            notif_type=Notification.TYPE_USER_APPROVED,
+            title="🧾 New User Registration",
+            message=f"User '{user.username}' has created an account and is awaiting device approval.",
+            meta={"user_id": user.id},
+        )
+
         return Response(
             {
                 "id": user.id,
@@ -98,7 +111,6 @@ class RegisterView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
-
 # ------------------ LOGIN ------------------
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -371,10 +383,26 @@ class DepositView(APIView):
                     meta={"amount": str(amount), "balance": str(new_balance)},
                 )
 
+                # ✅ Deposit email
+                try:
+                    send_branded_email(
+                        subject="Deposit Successful — CreditJambo",
+                        to_email=user.email,
+                        template_name="emails/deposit_success.html",
+                        context={"user": user, "amount": amount, "balance": new_balance},
+                    )
+                except Exception as e:
+                    print(f"⚠️ Deposit email failed: {e}")
+
                 # ✅ Low balance rule check
                 rules = LowBalanceRule.objects.filter(enabled=True).filter(
                     Q(user=user) | Q(user__isnull=True)
                 )
+
+                if not rules.exists():
+                    # Auto fallback rule (system-wide 50 threshold)
+                    rules = [type("Rule", (), {"threshold": Decimal("50.00")})()]
+
                 for rule in rules:
                     if user.balance <= rule.threshold:
                         Notification.objects.create(
@@ -384,6 +412,30 @@ class DepositView(APIView):
                             message=f"Your balance is {user.balance}. Threshold: {rule.threshold}.",
                             meta={"threshold": str(rule.threshold)},
                         )
+
+                        # ✅ Send daily reminder email asynchronously
+                        def _daily_reminder():
+                            try:
+                                # Prevent duplicate same-day email
+                                if getattr(user, "last_low_balance_reminder", None) == date.today():
+                                    return
+                                send_branded_email(
+                                    subject="Low Balance Warning — CreditJambo",
+                                    to_email=user.email,
+                                    template_name="emails/low_balance_warning.html",
+                                    context={
+                                        "user": user,
+                                        "balance": user.balance,
+                                        "threshold": rule.threshold,
+                                    },
+                                )
+                                # Save reminder date
+                                user.last_low_balance_reminder = date.today()
+                                user.save(update_fields=["last_low_balance_reminder"])
+                            except Exception as e:
+                                print(f"⚠️ Low balance reminder failed: {e}")
+
+                        threading.Thread(target=_daily_reminder, daemon=True).start()
                         break
 
             resp = TransactionResponseSerializer(tx).data
@@ -426,7 +478,7 @@ class WithdrawView(APIView):
                 created_at=timezone.now(),
             )
 
-        # ✅ Normal withdrawal notification
+        # ✅ Withdrawal notification
         try:
             Notification.objects.create(
                 user=user,
@@ -438,15 +490,25 @@ class WithdrawView(APIView):
         except Exception as e:
             print(f"⚠️ Notification create failed: {e}")
 
-        # ✅ Low balance warning (with fallback + email)
+        # ✅ Email
+        try:
+            send_branded_email(
+                subject="Withdrawal Successful — CreditJambo",
+                to_email=user.email,
+                template_name="emails/withdraw_success.html",
+                context={"user": user, "amount": amount, "balance": new_balance},
+            )
+        except Exception as e:
+            print(f"⚠️ Withdraw email failed: {e}")
+
+        # ✅ Low balance logic
         try:
             rules = LowBalanceRule.objects.filter(enabled=True).filter(
                 Q(user=user) | Q(user__isnull=True)
             )
 
-            # fallback rule if none exist
             if not rules.exists():
-                rules = [type("Rule", (), {"threshold": Decimal("10.00")})()]
+                rules = [type("Rule", (), {"threshold": Decimal("50.00")})()]
 
             for rule in rules:
                 if user.balance <= rule.threshold:
@@ -458,24 +520,27 @@ class WithdrawView(APIView):
                         meta={"threshold": str(rule.threshold)},
                     )
 
-                    # ✅ Send email asynchronously
-                    def _send_email():
+                    # ✅ Daily email reminder
+                    def _daily_reminder():
                         try:
-                            send_mail(
-                                subject="Low Balance Warning",
-                                message=(
-                                    f"Hi {user.username},\n\n"
-                                    f"Your balance ({user.balance}) has dropped below your threshold ({rule.threshold}). "
-                                    "Please deposit funds soon to avoid interruptions."
-                                ),
-                                from_email=settings.DEFAULT_FROM_EMAIL,
-                                recipient_list=[user.email],
-                                fail_silently=True,
+                            if getattr(user, "last_low_balance_reminder", None) == date.today():
+                                return
+                            send_branded_email(
+                                subject="Low Balance Warning — CreditJambo",
+                                to_email=user.email,
+                                template_name="emails/low_balance_warning.html",
+                                context={
+                                    "user": user,
+                                    "balance": user.balance,
+                                    "threshold": rule.threshold,
+                                },
                             )
+                            user.last_low_balance_reminder = date.today()
+                            user.save(update_fields=["last_low_balance_reminder"])
                         except Exception as e:
-                            print(f"⚠️ Low balance email failed: {e}")
+                            print(f"⚠️ Low balance reminder failed: {e}")
 
-                    threading.Thread(target=_send_email, daemon=True).start()
+                    threading.Thread(target=_daily_reminder, daemon=True).start()
                     break
         except Exception as e:
             print(f"⚠️ Low balance notification failed: {e}")
@@ -592,6 +657,8 @@ class OTPRequestView(APIView):
         identifier = s.validated_data["identifier"]
         channel = s.validated_data["channel"]
 
+        user = None
+        dest = None
         try:
             if "@" in identifier:
                 user = User.objects.get(email__iexact=identifier)
@@ -623,13 +690,32 @@ class OTPRequestView(APIView):
             expires_at=expire,
         )
 
-        if channel == "email":
-            send_otp_email(dest, otp, expire)
-        else:
-            send_otp_sms(dest, otp, expire)
+        try:
+            if channel == "email":
+                send_branded_email(
+                    subject="Your Verification Code — CreditJambo",
+                    to_email=user.email,
+                    template_name="emails/otp_code.html",
+                    context={"user": user, "otp": otp, "expire": expire},
+                )
+            else:
+                send_otp_sms(
+                    dest,
+                    f"Muraho {user.first_name}, your CreditJambo OTP is {otp}. It expires in 10 minutes."
+                )
+        except Exception as e:
+            print(f"⚠️ OTP send failed: {e}")
+
+        # 🔔 Notify admins (optional): password reset requested
+        notify_admins(
+            notif_type=Notification.TYPE_PASSWORD_RESET,
+            title="🔐 Password Reset Requested",
+            message=f"User '{user.username}' requested a password reset OTP.",
+            meta={"user_id": user.id},
+        )
 
         return Response({"detail": "If an account exists, an OTP was sent."}, status=status.HTTP_200_OK)
-    
+
 @method_decorator(csrf_exempt, name="dispatch")
 class OTPVerifyView(APIView):
     permission_classes = [AllowAny]
@@ -1025,9 +1111,9 @@ class AdminDeviceListView(generics.ListAPIView):
             qs = qs.filter(status=status_filter.upper())
         return qs
 
-# Admin: approve / reject device
+# ✅ Admin: approve device
 @api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated, IsAdmin])
+@permission_classes([permissions.IsAuthenticated])
 def admin_approve_device(request, pk):
     try:
         device = get_object_or_404(Device, pk=pk)
@@ -1040,13 +1126,21 @@ def admin_approve_device(request, pk):
         device.verified_at = timezone.now()
         device.save(update_fields=["status", "verified_at"])
 
-        # ✅ Create notification for owner
-        Notification.objects.create(
+        # ✅ Create user notification
+        create_user_notification(
             user=device.user,
-            notif_type=Notification.TYPE_DEVICE,
-            title="Device Approved",
+            notif_type=Notification.TYPE_USER_APPROVED,
+            title="✅ Device Approved",
             message=f"Your device '{device.device_id}' has been approved by admin.",
             meta={"device_id": str(device.id), "status": device.status},
+        )
+
+        # ✅ Notify all admins
+        notify_admins(
+            notif_type=Notification.TYPE_USER_APPROVED,
+            title="🟢 Device Approved",
+            message=f"Device {device.device_id} for user '{device.user.username}' was approved.",
+            meta={"device_id": str(device.id), "user_id": device.user.id},
         )
 
         return Response({"detail": "Device approved.", "id": str(device.id)})
@@ -1057,9 +1151,9 @@ def admin_approve_device(request, pk):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
+# ✅ Admin: reject device
 @api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated, IsAdmin])
+@permission_classes([permissions.IsAuthenticated])
 def admin_reject_device(request, pk):
     try:
         device = get_object_or_404(Device, pk=pk)
@@ -1067,16 +1161,25 @@ def admin_reject_device(request, pk):
         if device.status == Device.STATUS_REJECTED:
             return Response({"detail": "Already rejected."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # ✅ Update status
         device.status = Device.STATUS_REJECTED
         device.save(update_fields=["status"])
 
-        # ✅ Create notification for owner
-        Notification.objects.create(
+        # ✅ Notify user
+        create_user_notification(
             user=device.user,
-            notif_type=Notification.TYPE_DEVICE,
-            title="Device Rejected",
+            notif_type=Notification.TYPE_USER_REJECTED,
+            title="🚫 Device Rejected",
             message=f"Your device '{device.device_id}' has been rejected by admin.",
             meta={"device_id": str(device.id), "status": device.status},
+        )
+
+        # ✅ Notify all admins
+        notify_admins(
+            notif_type=Notification.TYPE_USER_REJECTED,
+            title="🔴 Device Rejected",
+            message=f"Device {device.device_id} for user '{device.user.username}' was rejected.",
+            meta={"device_id": str(device.id), "user_id": device.user.id},
         )
 
         return Response({"detail": "Device rejected.", "id": str(device.id)})
@@ -1085,3 +1188,129 @@ def admin_reject_device(request, pk):
         import traceback
         traceback.print_exc()
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminNotificationListView(generics.ListAPIView):
+    """
+    ✅ List notifications for admin users
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return Notification.objects.filter(user__is_staff=True).order_by("-created_at")
+        return Notification.objects.filter(user=user).order_by("-created_at")
+
+
+# ==============================
+# ✅ NORMAL USER ENDPOINTS
+# ==============================
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def mark_notification_read(request, pk):
+    """
+    ✅ Mark a single notification as read (for normal user)
+    """
+    notif = get_object_or_404(Notification, pk=pk, user=request.user)
+    if hasattr(notif, "mark_read"):
+        notif.mark_read()
+    else:
+        notif.read = True
+        notif.save(update_fields=["read"])
+    return Response({"detail": "Notification marked as read."}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def mark_all_notifications_read(request):
+    """
+    ✅ Mark all notifications for the current user as read
+    """
+    updated = Notification.objects.filter(user=request.user, read=False).update(read=True)
+    return Response(
+        {"detail": f"{updated} notifications marked as read."},
+        status=status.HTTP_200_OK,
+    )
+
+
+# ==============================
+# ✅ ADMIN ENDPOINTS
+# ==============================
+
+
+@api_view(["PATCH"])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
+def admin_mark_notification_read(request, pk):
+    """
+    ✅ Allows admin to mark any notification as read
+    """
+    try:
+        notif = get_object_or_404(Notification, pk=pk)
+        # handle both 'read' and 'is_read' field naming
+        if hasattr(notif, "read"):
+            notif.read = True
+        elif hasattr(notif, "read"):
+            notif.is_read = True
+        notif.save()
+        return Response(
+            {"detail": "Admin notification marked as read."},
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        traceback.print_exc()
+        return Response(
+            {"detail": f"Error: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
+def admin_mark_all_notifications_read(request):
+    """
+    ✅ Allows admin to mark ALL notifications as read
+    """
+    try:
+        # handle both field names
+        if "is_read" in [f.name for f in Notification._meta.fields]:
+            updated = Notification.objects.filter(read=False).update(read=True)
+        else:
+            updated = Notification.objects.filter(read=False).update(read=True)
+
+        return Response(
+            {"detail": f"{updated} admin notifications marked as read."},
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        traceback.print_exc()
+        return Response(
+            {"detail": f"Error: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+
+class AdminNotificationViewSet(viewsets.ModelViewSet):
+    queryset = Notification.objects.all().order_by("-created_at")
+    serializer_class = NotificationSerializer  # adjust to your serializer
+
+    @action(detail=True, methods=["patch"], url_path="mark_read")
+    def mark_read(self, request, pk=None):
+        try:
+            notif = self.get_object()
+            notif.is_read = True
+            notif.save()
+            return Response({"message": "Notification marked as read."}, status=status.HTTP_200_OK)
+        except Notification.DoesNotExist:
+            return Response({"error": "Notification not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=["post"], url_path="mark_all_read")
+    def mark_all_read(self, request):
+        updated = Notification.objects.filter(read=False).update(read=True)
+        return Response(
+            {"message": f"{updated} notifications marked as read."},
+            status=status.HTTP_200_OK
+        )

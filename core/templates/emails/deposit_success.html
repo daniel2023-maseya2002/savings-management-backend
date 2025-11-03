@@ -1,0 +1,72 @@
+{% extends "emails/base_email.html" %}
+{% load humanize %}
+
+{% block content %}
+  <!-- Header -->
+  <div style="text-align:center; margin-bottom:24px;">
+    <h2 style="margin:0; font-size:22px; color:#10b981;">
+      💰 Deposit Successful
+    </h2>
+    <p style="margin:6px 0 0 0; color:#6b7280; font-size:13px;">
+      Confirmation · Ibaruwa yemeza ko amafaranga yinjiye
+    </p>
+  </div>
+
+  <!-- Card block -->
+  <div style="
+    background:linear-gradient(180deg,#f0fdf4 0%,#ffffff 100%);
+    border:1px solid #dcfce7;
+    border-radius:16px;
+    padding:20px 22px;
+    box-shadow:0 4px 12px rgba(16,185,129,0.1);
+  ">
+    <!-- English -->
+    <p style="font-size:15px; color:#065f46; margin:0 0 12px 0;">
+      Hi <strong>{{ user.first_name|default:user.username }}</strong>,
+    </p>
+    <p style="font-size:14px; color:#065f46; margin:0 0 10px 0;">
+      Your deposit of 
+      <strong style="color:#059669;">${{ amount|floatformat:2|intcomma }}</strong>
+      has been processed successfully.
+    </p>
+    <p style="font-size:14px; color:#065f46; margin:0 0 18px 0;">
+      Your new balance is 
+      <strong style="color:#0ea5e9;">${{ balance|floatformat:2|intcomma }}</strong>.
+    </p>
+
+    <!-- Summary details -->
+    <div style="margin-top:14px; padding:12px; background:#ecfdf5; border-radius:12px; font-size:13px; color:#065f46;">
+      <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #d1fae5;">
+        <span>Amount Deposited</span>
+        <strong style="color:#10b981;">${{ amount|floatformat:2|intcomma }}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:6px 0;">
+        <span>New Balance</span>
+        <strong style="color:#06b6d4;">${{ balance|floatformat:2|intcomma }}</strong>
+      </div>
+    </div>
+
+    <!-- Kinyarwanda -->
+    <hr style="border:none; border-top:1px solid #dcfce7; margin:22px 0 14px 0;">
+    <p style="font-size:15px; color:#064e3b; margin:0 0 8px 0;">
+      Muraho <strong>{{ user.first_name|default:user.username }}</strong>,
+    </p>
+    <p style="font-size:14px; color:#064e3b; margin:0 0 8px 0;">
+      Kongeraho amafaranga ya 
+      <strong style="color:#059669;">${{ amount|floatformat:2|intcomma }}</strong> 
+      byagenze neza.
+    </p>
+    <p style="font-size:14px; color:#064e3b; margin:0;">
+      Umubare mushya uri kuri konti yawe ni 
+      <strong style="color:#0ea5e9;">${{ balance|floatformat:2|intcomma }}</strong>.
+    </p>
+  </div>
+
+  <!-- Footer note -->
+  <div style="margin-top:22px; text-align:center;">
+    <p style="font-size:13px; color:#64748b; line-height:1.6; margin:0;">
+      ✅ Thank you for banking with <strong>CreditJambo</strong>.<br>
+      For assistance, contact <a href="mailto:support@creditjambo.com" style="color:#06b6d4; text-decoration:none;">support@creditjambo.com</a>.
+    </p>
+  </div>
+{% endblock %}

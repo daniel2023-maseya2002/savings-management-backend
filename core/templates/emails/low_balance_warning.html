@@ -1,0 +1,41 @@
+{% extends "emails/base_email.html" %}
+{% load humanize %}
+{% block content %}
+  <!-- header -->
+  <div style="margin-bottom:10px">
+    <h2 style="margin:0; font-size:20px; line-height:28px; color:#b45309;">⚠️ Low Balance Warning</h2>
+    <p style="margin:4px 0 0 0; color:#6b7280; font-size:12px;">Heads-up · Iburira ry’ amafaranga make</p>
+  </div>
+
+  <!-- EN -->
+  <div style="font-size:14px; color:#111827; line-height:22px;">
+    <p style="margin:0 0 10px 0;">Hi {{ user.first_name|default:user.username }},</p>
+    <p style="margin:0 0 10px 0;">
+      Your balance is <strong style="color:#0f172a;">
+      ${{ balance|floatformat:2|intcomma }}</strong>, which is below your threshold of
+      <strong style="color:#0f172a;">${{ threshold|floatformat:2|intcomma }}</strong>.
+    </p>
+    <p style="margin:0 0 14px 0;">Please deposit soon to continue using CreditJambo without interruptions.</p>
+  </div>
+
+  <!-- RW -->
+  <div style="font-size:14px; color:#111827; line-height:22px; margin-top:4px;">
+    <p style="margin:0 0 10px 0;">Muraho {{ user.first_name|default:user.username }},</p>
+    <p style="margin:0 0 10px 0;">
+      Ubufaranga bwawe ni <strong style="color:#0f172a;">
+      ${{ balance|floatformat:2|intcomma }}</strong>, munsi ya urwego rw’imenyesha
+      <strong style="color:#0f172a;">${{ threshold|floatformat:2|intcomma }}</strong>.
+    </p>
+    <p style="margin:0;">Tunganira wongere kubitsa vuba kugira ngo ukomeze ukoreshe CreditJambo neza.</p>
+  </div>
+
+  <!-- card -->
+  <div style="margin-top:12px; padding:12px; border:1px solid #fde68a; background:#fffbeb; border-radius:12px; font-size:13px; color:#7c2d12;">
+    <div style="display:flex; justify-content:space-between; padding:6px 0;">
+      <span>Current Balance</span><strong>${{ balance|floatformat:2|intcomma }}</strong>
+    </div>
+    <div style="display:flex; justify-content:space-between; padding:6px 0;">
+      <span>Threshold</span><strong>${{ threshold|floatformat:2|intcomma }}</strong>
+    </div>
+  </div>
+{% endblock %}

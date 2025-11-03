@@ -8,6 +8,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
 from pyfcm import FCMNotification
+from .utils import send_branded_email
 
 OTP_LENGTH = 6
 OTP_TTL = timedelta(minutes=10)
@@ -94,3 +95,19 @@ def get_client_ip(request):
         # “X-Forwarded-For: client, proxy1, proxy2”
         return xff.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR")
+
+def send_otp_email(user, otp, expire):
+    """Send OTP email using your custom HTML template."""
+    try:
+        send_branded_email(
+            subject="Your Verification Code — CreditJambo",
+            to_email=user.email,
+            template_name="emails/otp_code.html",
+            context={
+                "user": user,
+                "otp": otp,
+                "expire": expire,
+            },
+        )
+    except Exception as e:
+        print(f"⚠️ OTP email failed: {e}")
