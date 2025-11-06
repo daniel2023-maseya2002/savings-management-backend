@@ -1,0 +1,7 @@
+CreditJambo Notification
+
+Hello {{ user.first_name }},
+Muraho {{ user.first_name }},
+
+This is a plain-text fallback email. Please view the HTML version if available.
+Iyi ni message yanditse isanzwe, reba version ya HTML niba iboneka.

@@ -1,0 +1,68 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en" style="margin:0;padding:0;background:#0b1220;">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="supported-color-schemes" content="dark light" />
+    <title>CreditJambo Notification</title>
+    <style>
+      img{border:0;outline:none;text-decoration:none;display:block}
+      table{border-collapse:collapse;border-spacing:0}
+      a{text-decoration:none}
+      @media (max-width:600px){
+        .container{width:100%!important}
+      }
+    </style>
+  </head>
+  <body style="margin:0;padding:0;background:#0b1220;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1220;">
+      <tr>
+        <td align="center" style="padding:24px;">
+          <table role="presentation" width="600" class="container" cellpadding="0" cellspacing="0"
+                 style="width:600px;max-width:600px;background:#0f172a;border-radius:16px;
+                        border:1px solid rgba(148,163,184,0.12);
+                        box-shadow:0 10px 40px rgba(2,6,23,0.45);">
+            
+            <!-- Header -->
+            <tr>
+              <td style="padding:20px 24px;background:#0b1324;border-bottom:1px solid rgba(148,163,184,0.12);">
+                <table width="100%">
+                  <tr>
+                    <td style="vertical-align:middle;">
+                      <img src="cid:{{ logo_cid }}" alt="CreditJambo" width="40" height="40"
+                           style="border-radius:10px;background:#0b1220;" />
+                    </td>
+                    <td style="padding-left:12px;vertical-align:middle;">
+                      <div style="font-weight:800;font-size:18px;
+                                  background:linear-gradient(90deg,#10b981,#06b6d4,#818cf8);
+                                  -webkit-background-clip:text;background-clip:text;color:transparent;">
+                        CreditJambo
+                      </div>
+                      <div style="font-size:12px;color:#94a3b8;">Secure Services</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Dynamic content -->
+            <tr>
+              <td style="padding:24px;">
+                {% block content %}{% endblock %}
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding:16px 24px;border-top:1px solid rgba(148,163,184,0.12);background:#0c1426;font-size:12px;color:#94a3b8;">
+                © {{ now|date:"Y" }} CreditJambo. All rights reserved.
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
