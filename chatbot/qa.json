@@ -1,0 +1,7 @@
+[
+  { "patterns": ["hi", "hello", "hey"], "reply": "Hello! 👋 How can I help you with savings today?" },
+  { "patterns": ["how to deposit", "deposit", "add money", "make a deposit"], "reply": "To deposit, go to Wallet → Deposit, choose a bank and amount, then confirm." },
+  { "patterns": ["withdraw", "how to withdraw", "take money out"], "reply": "To withdraw, go to Wallet → Withdraw and follow the steps." },
+  { "patterns": ["hours", "working hours", "open hours"], "reply": "Support hours: Mon–Fri 08:00–17:00." },
+  { "patterns": ["thanks", "thank you"], "reply": "You're welcome — happy to help! 😊" }
+]

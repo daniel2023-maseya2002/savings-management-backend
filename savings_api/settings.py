@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-as1nxm@b*&339*hakqgj0hepa=p#=fkqxq163*!!ch8p+t@pn8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver"]
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt.token_blacklist',
     'django.contrib.humanize',
+    'chatbot',
+    'chatterbot.ext.django_chatterbot', 
 ]
 
 MIDDLEWARE = [
@@ -172,6 +174,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    'http://192.168.1.68:19006',  # Expo web/devtools if needed
+    'exp://192.168.1.68:19000', 
 ]
 
 # --- custom user model ---
@@ -194,6 +198,13 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
     "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
+
+# Optional: configure ChatterBot storage if desired
+CHATTERBOT = {
+    'name': 'MyDjangoBot',
+    'trainer': 'chatterbot.trainers.ChatterBotCorpusTrainer',
+    'storage_adapter': 'chatterbot.storage.SQLStorageAdapter',
+}   
 
 LOW_BALANCE_THRESHOLD = 50.00
 
