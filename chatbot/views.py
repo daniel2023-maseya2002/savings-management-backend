@@ -6,7 +6,7 @@ from pathlib import Path
 
 from django.core.paginator import Paginator
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -19,13 +19,6 @@ BASE = Path(__file__).resolve().parent
 QA_FILE = BASE / "qa.json"
 
 def load_qa():
-    """
-    Load qa.json and return a list of pattern dicts.
-    Each returned item will contain:
-      - 'raw_patterns': original patterns list
-      - 'reply': reply text
-      - 'compiled': list of compiled regex or substring markers
-    """
     try:
         raw = []
         if QA_FILE.exists():
@@ -34,7 +27,6 @@ def load_qa():
         logger.exception("Failed to load qa.json: %s", exc)
         raw = []
 
-    # Fallback defaults if file missing/invalid
     if not raw:
         raw = [
             {"patterns": ["hi", "hello", "hey"], "reply": "Hello! 👋 How can I help you with savings today?"},
@@ -47,15 +39,13 @@ def load_qa():
         compiled = []
         for p in patterns:
             p_norm = p.strip()
-            # if looks like explicit regex (anchors or special regex chars), compile as regex
+            # treat likely regexes as regex; else substring
             if p_norm.startswith("^") or any(ch in p_norm for ch in ".*?+[]()\\"):
                 try:
                     compiled.append(("regex", re.compile(p_norm, flags=re.IGNORECASE)))
                 except re.error:
-                    # fallback to substring if compilation fails
                     compiled.append(("substr", p_norm.lower()))
             else:
-                # substring match (fast)
                 compiled.append(("substr", p_norm.lower()))
         prepared.append({
             "raw_patterns": patterns,
@@ -64,22 +54,12 @@ def load_qa():
         })
     return prepared
 
-# load and precompile on import (fast on runtime)
 QA_DATA = load_qa()
 
-
 def find_reply(user_text):
-    """
-    Uses precompiled QA_DATA to find the first matching reply.
-    Order: iterate items in file order -> patterns order.
-    Substring matches are case-insensitive.
-    Regex patterns use re.IGNORECASE.
-    """
     if not user_text:
         return ""
     text = user_text.lower()
-
-    # 1) exact/substring or regex matches from qa.json
     for item in QA_DATA:
         for typ, patt in item["compiled"]:
             if typ == "substr":
@@ -88,23 +68,17 @@ def find_reply(user_text):
             elif typ == "regex":
                 if patt.search(user_text):
                     return item["reply"]
-
-    # 2) small heuristics
     if any(w in text for w in ["thank", "thanks"]):
         return "You're welcome! 😊"
     if "help" in text:
         return "Tell me what you need help with — deposits, withdrawals, or account info."
-
-    # 3) default fallback
     return "Sorry, I don't know that yet. Try asking about deposits, withdrawals, or working hours."
-
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def message(request):
     """
-    POST JSON: { "message": "Hello" }
-    Requires Authorization: Bearer <access_token>
+    POST JSON: { "message": "Hello" } - Auth required (Bearer token)
     Saves conversation to DB and returns bot reply.
     """
     user = request.user if request and hasattr(request, "user") else None
@@ -114,7 +88,6 @@ def message(request):
 
     reply = find_reply(user_msg)
 
-    # Save conversation (best-effort; do not raise on DB error)
     try:
         Conversation.objects.create(
             user=user if user and getattr(user, "is_authenticated", False) else None,
@@ -140,6 +113,43 @@ def history(request):
     page = int(request.query_params.get("page", 1))
     page_size = int(request.query_params.get("page_size", 20))
     qs = Conversation.objects.filter(user=user).order_by("-created_at")
+    paginator = Paginator(qs, page_size)
+    try:
+        page_obj = paginator.page(page)
+    except Exception:
+        return Response({"detail": "Invalid page."}, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = ConversationSerializer(page_obj.object_list, many=True)
+    return Response({
+        "count": paginator.count,
+        "num_pages": paginator.num_pages,
+        "page": page,
+        "page_size": page_size,
+        "results": serializer.data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def all_conversations(request):
+    """
+    Admin-only: return paginated conversations.
+    Optional query params:
+      - user: username or user id to filter conversations
+      - page, page_size
+    """
+    user_q = request.query_params.get("user", None)
+    qs = Conversation.objects.all().order_by("-created_at")
+
+    if user_q:
+        try:
+            qs = qs.filter(user__id=int(user_q))
+        except Exception:
+            qs = qs.filter(user__username__icontains=user_q)
+
+    page = int(request.query_params.get("page", 1))
+    page_size = int(request.query_params.get("page_size", 20))
+
     paginator = Paginator(qs, page_size)
     try:
         page_obj = paginator.page(page)
