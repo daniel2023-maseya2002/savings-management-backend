@@ -46,7 +46,7 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from .utils import generate_otp, get_client_ip
 from .notify import send_otp_email, send_otp_sms
-from datetime import timedelta
+from datetime import date, timedelta
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.generics import UpdateAPIView, ListAPIView

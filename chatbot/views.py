@@ -12,6 +12,8 @@ from rest_framework import status
 
 from .models import Conversation
 from .serializers import ConversationSerializer
+from rest_framework.pagination import PageNumberPagination
+
 
 logger = logging.getLogger(__name__)
 
@@ -164,3 +166,35 @@ def all_conversations(request):
         "page_size": page_size,
         "results": serializer.data
     }, status=status.HTTP_200_OK)
+
+class AdminConversationsPagination(PageNumberPagination):
+    page_size = 30
+    page_size_query_param = "page_size"
+    max_page_size = 200
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_list_conversations(request):
+    """
+    Admin-only: list all conversations (paginated).
+    Query params: page, page_size, user (optional filter by user id or username)
+    """
+    user = request.user
+    if not user.is_staff:
+        return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
+
+    qs = Conversation.objects.all().order_by("-created_at")
+
+    # optional filter by username or id
+    user_q = request.query_params.get("user")
+    if user_q:
+        # try id first
+        if user_q.isdigit():
+            qs = qs.filter(user__id=int(user_q))
+        else:
+            qs = qs.filter(user__username__icontains=user_q)
+
+    paginator = AdminConversationsPagination()
+    page = paginator.paginate_queryset(qs, request)
+    serializer = ConversationSerializer(page, many=True)
+    return paginator.get_paginated_response(serializer.data)
