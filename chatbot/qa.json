@@ -1,7 +1,63 @@
 [
-  { "patterns": ["hi", "hello", "hey"], "reply": "Hello! 👋 How can I help you with savings today?" },
-  { "patterns": ["how to deposit", "deposit", "add money", "make a deposit"], "reply": "To deposit, go to Wallet → Deposit, choose a bank and amount, then confirm." },
-  { "patterns": ["withdraw", "how to withdraw", "take money out"], "reply": "To withdraw, go to Wallet → Withdraw and follow the steps." },
-  { "patterns": ["hours", "working hours", "open hours"], "reply": "Support hours: Mon–Fri 08:00–17:00." },
-  { "patterns": ["thanks", "thank you"], "reply": "You're welcome — happy to help! 😊" }
+  { "patterns": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "what's up", "yo"], "reply": "Hello! 👋 Welcome to CreditJambo. How are you doing today? How can I assist you?" },
+
+  { "patterns": ["how are you", "how are u", "how r u", "how do you do", "are you okay"], "reply": "I'm great, thanks for asking! 😊 I'm here 24/7 to help with your banking questions." },
+
+  { "patterns": ["how to open account", "create account", "register", "sign up", "start new account"], "reply": "To open a new account, visit our mobile app or website, tap **Register**, fill your personal details, verify your phone or email, and you’re all set!" },
+
+  { "patterns": ["deposit", "how to deposit", "add money", "fund account", "make a deposit", "top up"], "reply": "To deposit funds, go to **Wallet → Deposit**, choose a payment method, enter the amount, and confirm. You will receive a notification once the deposit is confirmed." },
+
+  { "patterns": ["^deposit\\s+(?P<amount>[0-9\\,\\.]+)\\s*(?P<currency>rwf|frw|rwf|rwf\\b|usd|dollars|dollar|k|m)?", "^topup\\s+(?P<amount>[0-9\\,\\.]+)"], "reply": "I see you want to deposit {amount} {currency}. To proceed, open Wallet → Deposit and choose your bank or mobile money provider. If you want I can guide you step-by-step." },
+
+  { "patterns": ["withdraw", "how to withdraw", "take money out", "cash out", "send to bank"], "reply": "To withdraw, go to **Wallet → Withdraw**, enter the amount and the destination bank or mobile number, and confirm. Withdrawals are usually processed instantly or within a few minutes." },
+
+  { "patterns": ["^withdraw\\s+(?P<amount>[0-9\\,\\.]+)\\s*(?P<currency>rwf|frw|usd|dollars|k|m)?"], "reply": "You asked to withdraw {amount} {currency}. Open Wallet → Withdraw, enter recipient bank details and confirm. Fees and processing times will be shown before you confirm." },
+
+  { "patterns": ["transfer", "send money", "how to transfer", "send to friend", "money transfer"], "reply": "To transfer money, go to **Wallet → Transfer**, enter recipient account or phone number, the amount, and confirm." },
+
+  { "patterns": ["^send\\s+(?P<amount>[0-9\\,\\.]+)\\s*(?P<currency>rwf|frw|usd|dollars|k|m)?\\s+to\\s+(?P<target>\\w+)"], "reply": "You want to send {amount} {currency} to {target}. Go to Wallet → Transfer, enter the recipient and amount, and confirm. Want me to show the transfer screen steps?" },
+
+  { "patterns": ["balance", "check balance", "account balance", "how much money", "available balance"], "reply": "Open your **Dashboard** or **Wallet** page to see the available and total balances. If you'd like I can fetch your last balance update (requires a logged-in session)." },
+
+  { "patterns": ["transaction not showing", "transaction missing", "transaction delay", "pending deposit", "transaction failed", "payment not received"], "reply": "If a transaction is pending, please wait up to 10 minutes. If it’s still missing, send the transaction reference or screenshot and we’ll investigate." },
+
+  { "patterns": ["loan", "apply for loan", "get a loan", "loan status", "loan request"], "reply": "Loan services are available for verified users. Visit **Loans** in your dashboard to check eligibility and submit an application." },
+
+  { "patterns": ["atm card", "debit card", "lost card", "block card", "card issue", "card not working"], "reply": "If your card is lost or malfunctioning, freeze it in **Settings → Card Management** immediately. For replacements, request a new card there or contact support." },
+
+  { "patterns": ["change password", "forgot password", "reset password", "password issue"], "reply": "To reset your password, use **Forgot Password** on the login screen and follow the steps to receive an OTP or reset link." },
+
+  { "patterns": ["security", "fraud", "scam", "hacked", "unauthorized", "suspicious transaction"], "reply": "If you suspect fraud, lock your account immediately under **Settings → Security**, and contact support right away. Never share your OTP or PIN." },
+
+  { "patterns": ["interest rate", "savings interest", "interest rates", "how much interest", "interest calculation"], "reply": "Interest rates depend on the savings plan. Average rates are between 3%–7% annually. Check **Savings → Plans** for exact rates." },
+
+  { "patterns": ["support", "help", "customer care", "contact support", "agent", "human"], "reply": "You can chat with us here or email **support@creditjambo.com**. If you need human assistance, reply 'speak to agent' and I will escalate." },
+
+  { "patterns": ["hours", "working hours", "open hours", "closing time", "when open"], "reply": "Digital banking is available 24/7. For in-person support, offices are open Monday–Friday, 8:00 AM to 5:00 PM." },
+
+  { "patterns": ["fees", "charges", "transaction fees", "withdrawal fee", "deposit fee"], "reply": "Deposits are usually free. Transfers and withdrawals may have small fees (shown before confirmation). Check the fee details on the transaction screen." },
+
+  { "patterns": ["verify account", "verification", "kyc", "upload id", "account verification", "how to verify"], "reply": "Go to **Profile → Verification**, upload your national ID or passport, and wait for confirmation. Verification unlocks additional features." },
+
+  { "patterns": ["exchange rate", "usd rate", "convert currency", "forex", "currency exchange"], "reply": "Use the **Currency Converter** in the app to view live exchange rates. Rates are updated hourly." },
+
+  { "patterns": ["mobile money", "mtn money", "airtel money", "tigo cash", "m-pesa"], "reply": "Select **Mobile Money** in the Deposit/Withdraw screens and follow the prompts. Make sure the mobile number matches your mobile money account." },
+
+  { "patterns": ["otp not working", "otp problem", "didn't receive otp", "verification code not received"], "reply": "If you didn't receive OTP, wait a few moments and request a new code. Ensure your phone has signal and that the number in your profile is correct." },
+
+  { "patterns": ["hello there", "hi bot", "hey bot", "are you there"], "reply": "I’m here! 👋 How can I help you with your CreditJambo account today?" },
+
+  { "patterns": ["who are you", "what is your name", "are you a bot", "are you human"], "reply": "I’m CreditJambo’s virtual assistant 🤖. I can help with balances, deposits, withdrawals, transfers, and connecting you to support." },
+
+  { "patterns": ["what can you do", "how can you help", "your functions", "what do you do"], "reply": "I can help check balances, guide deposits and withdrawals, assist with transfers, reset passwords, explain fees, and connect you to a human agent." },
+
+  { "patterns": ["bye", "goodbye", "see you", "see ya", "take care"], "reply": "Goodbye! 👋 Thanks for banking with CreditJambo. Have a great day." },
+
+  { "patterns": ["thanks", "thank you", "appreciate"], "reply": "You're welcome! 😊 Anything else I can do for you?" },
+
+  { "patterns": ["ok", "okay", "cool", "alright"], "reply": "Got it! 👍 Anything else you’d like to know?" },
+
+  { "patterns": ["speak to agent", "human", "operator", "support me"], "reply": "I will connect you to a human agent. Please hold on while I notify support — include your account username and brief issue description." },
+
+  { "patterns": ["complaint", "report issue", "report a problem"], "reply": "We're sorry to hear that. Please describe the issue and include transaction reference if any — we'll escalate this to the complaints team." }
 ]

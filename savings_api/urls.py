@@ -20,12 +20,16 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # core api (if you already have other core endpoints)
     path("api/", include("core.urls")),
 
     # token endpoints (AllowAny by default)
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("", include("chatbot.urls")),
+
+    # <-- Chatbot app should be included under /api/chat/ so frontend endpoint /api/chat/all/ matches
+    path("api/chat/", include("chatbot.urls")),
 ]
 
 FCM_SERVER_KEY = "<your_firebase_server_key_here>"

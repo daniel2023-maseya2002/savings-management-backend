@@ -14,11 +14,11 @@ from .models import Conversation
 from .serializers import ConversationSerializer
 from rest_framework.pagination import PageNumberPagination
 
-
 logger = logging.getLogger(__name__)
 
 BASE = Path(__file__).resolve().parent
 QA_FILE = BASE / "qa.json"
+
 
 def load_qa():
     try:
@@ -42,10 +42,12 @@ def load_qa():
         for p in patterns:
             p_norm = p.strip()
             # treat likely regexes as regex; else substring
-            if p_norm.startswith("^") or any(ch in p_norm for ch in ".*?+[]()\\"):
+            # heuristic: if it starts with ^ or contains regex special chars treat as regex
+            if p_norm.startswith("^") or any(ch in p_norm for ch in ".*?+[]()\\|"):
                 try:
                     compiled.append(("regex", re.compile(p_norm, flags=re.IGNORECASE)))
                 except re.error:
+                    # fallback to substring when regex is invalid
                     compiled.append(("substr", p_norm.lower()))
             else:
                 compiled.append(("substr", p_norm.lower()))
@@ -56,26 +58,174 @@ def load_qa():
         })
     return prepared
 
+
 QA_DATA = load_qa()
 
+
+# ---------- Helpers for amount / currency normalization ----------
+def parse_amount_str(s: str):
+    """
+    Parse a numeric amount string like "5k", "10,000", "10.5", "2m", "1,200.50" -> float/int.
+    Returns a string nicely formatted (no trailing .0 if integer) and raw numeric value as float.
+    If parsing fails, returns (original_string, None)
+    """
+    if not s:
+        return None, None
+    original = s.strip().lower()
+    # replace common separators and spaces
+    cleaned = original.replace(",", "").replace(" ", "")
+
+    # handle suffixes like k (thousand), m (million)
+    m_suffix = re.match(r"^([0-9]+(?:\.[0-9]+)?)\s*([km])$", cleaned, flags=re.IGNORECASE)
+    if m_suffix:
+        num = float(m_suffix.group(1))
+        suff = m_suffix.group(2).lower()
+        if suff == "k":
+            val = num * 1_000
+        elif suff == "m":
+            val = num * 1_000_000
+        else:
+            val = num
+        return format_amount(val), val
+
+    # if it contains only digits or decimal point
+    try:
+        if re.match(r"^[0-9]+(?:\.[0-9]+)?$", cleaned):
+            val = float(cleaned)
+            return format_amount(val), val
+    except Exception:
+        pass
+
+    # fallback: try to extract leading number
+    m = re.search(r"([0-9]+(?:[.,][0-9]+)?)", original)
+    if m:
+        try:
+            maybe = m.group(1).replace(",", "")
+            val = float(maybe)
+            return format_amount(val), val
+        except Exception:
+            pass
+
+    # could not parse — return original
+    return original, None
+
+
+def format_amount(value):
+    """
+    Nicely format a numeric amount: drop .0 for integers, add thousand separators
+    """
+    try:
+        if value is None:
+            return ""
+        # if it's effectively integer
+        iv = int(value)
+        if abs(value - iv) < 1e-9:
+            return f"{iv:,}"
+        # else show up to 2 decimal places (strip trailing zeros)
+        return f"{value:,.2f}".rstrip("0").rstrip(".")
+    except Exception:
+        return str(value)
+
+
+def normalize_currency_token(token: str):
+    """
+    Normalize some currency tokens to readable forms. Default to 'RWF' if unknown/empty.
+    """
+    if not token:
+        return "RWF"
+    t = token.strip().lower()
+    if t in ("rwf", "frw"):
+        return "RWF"
+    if t in ("usd", "dollar", "dollars", "$"):
+        return "USD"
+    if t in ("k", "thousand", "m", "million"):
+        # these are suffixes and better handled in amount parsing; return as-is fallback
+        return token.upper()
+    return token.upper()
+
+
+# ---------- Improved find_reply ----------
 def find_reply(user_text):
+    """
+    - substring patterns are matched as before
+    - regex patterns (compiled) are matched against the original user_text
+    - if regex pattern has named groups and the reply template contains placeholders like {amount},
+      those placeholders are filled from the regex named groups (normalized when possible)
+    """
     if not user_text:
         return ""
-    text = user_text.lower()
+    text = user_text  # keep original for regex matching
+    text_lower = user_text.lower()
+
     for item in QA_DATA:
         for typ, patt in item["compiled"]:
-            if typ == "substr":
-                if patt in text:
-                    return item["reply"]
-            elif typ == "regex":
-                if patt.search(user_text):
-                    return item["reply"]
-    if any(w in text for w in ["thank", "thanks"]):
+            try:
+                if typ == "substr":
+                    # patt is lowercase substring
+                    if patt in text_lower:
+                        return item.get("reply", "")
+                elif typ == "regex":
+                    # patt is a compiled regex
+                    if isinstance(patt, str):
+                        # defensive: if patt ended up as string fallback, do substring match
+                        if patt.lower() in text_lower:
+                            return item.get("reply", "")
+                        continue
+
+                    m = patt.search(text)
+                    if m:
+                        reply_template = item.get("reply", "")
+                        gd = m.groupdict()
+
+                        # normalize and prepare formatting context
+                        ctx = {}
+                        if gd:
+                            for k, v in gd.items():
+                                if v is None:
+                                    ctx[k] = ""
+                                    continue
+                                # common keys normalization
+                                if k.lower() in ("amount", "amt", "value"):
+                                    pretty, num = parse_amount_str(v)
+                                    ctx[k] = pretty if pretty is not None else v
+                                    ctx[f"{k}_num"] = num
+                                elif k.lower() in ("currency", "curr"):
+                                    ctx[k] = normalize_currency_token(v)
+                                else:
+                                    # default: trim
+                                    ctx[k] = v.strip()
+
+                        # If reply template has placeholders and we have ctx, try formatting
+                        if gd and ("{" in reply_template):
+                            try:
+                                return reply_template.format(**ctx)
+                            except Exception:
+                                # fallback: try to inject raw groups (without normalization)
+                                try:
+                                    return reply_template.format(**m.groupdict())
+                                except Exception:
+                                    # final fallback: return plain template without formatting
+                                    return reply_template
+                        else:
+                            return reply_template
+            except re.error:
+                # regex error fallback: if patt is a string substring, check it
+                try:
+                    if isinstance(patt, str) and patt.lower() in text_lower:
+                        return item.get("reply", "")
+                except Exception:
+                    pass
+                continue
+
+    # fallback heuristics
+    if any(w in text_lower for w in ["thank", "thanks"]):
         return "You're welcome! 😊"
-    if "help" in text:
+    if "help" in text_lower:
         return "Tell me what you need help with — deposits, withdrawals, or account info."
     return "Sorry, I don't know that yet. Try asking about deposits, withdrawals, or working hours."
 
+
+# ---------- API views (unchanged behavior) ----------
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def message(request):
@@ -167,10 +317,12 @@ def all_conversations(request):
         "results": serializer.data
     }, status=status.HTTP_200_OK)
 
+
 class AdminConversationsPagination(PageNumberPagination):
     page_size = 30
     page_size_query_param = "page_size"
     max_page_size = 200
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
