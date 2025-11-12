@@ -2,7 +2,7 @@
 from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer, ListTrainer
 
-BOT_NAME = "CreditJamboBot"
+BOT_NAME = "SavingDmBot"
 
 def train_bot():
     bot = ChatBot(

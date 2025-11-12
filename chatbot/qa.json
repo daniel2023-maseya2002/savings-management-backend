@@ -1,5 +1,5 @@
 [
-  { "patterns": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "what's up", "yo"], "reply": "Hello! 👋 Welcome to CreditJambo. How are you doing today? How can I assist you?" },
+  { "patterns": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "what's up", "yo"], "reply": "Hello! 👋 Welcome to SavingDm. How are you doing today? How can I assist you?" },
 
   { "patterns": ["how are you", "how are u", "how r u", "how do you do", "are you okay"], "reply": "I'm great, thanks for asking! 😊 I'm here 24/7 to help with your banking questions." },
 
@@ -45,13 +45,13 @@
 
   { "patterns": ["otp not working", "otp problem", "didn't receive otp", "verification code not received"], "reply": "If you didn't receive OTP, wait a few moments and request a new code. Ensure your phone has signal and that the number in your profile is correct." },
 
-  { "patterns": ["hello there", "hi bot", "hey bot", "are you there"], "reply": "I’m here! 👋 How can I help you with your CreditJambo account today?" },
+  { "patterns": ["hello there", "hi bot", "hey bot", "are you there"], "reply": "I’m here! 👋 How can I help you with your SavingDm account today?" },
 
-  { "patterns": ["who are you", "what is your name", "are you a bot", "are you human"], "reply": "I’m CreditJambo’s virtual assistant 🤖. I can help with balances, deposits, withdrawals, transfers, and connecting you to support." },
+  { "patterns": ["who are you", "what is your name", "are you a bot", "are you human"], "reply": "I’m SavingDm’s virtual assistant 🤖. I can help with balances, deposits, withdrawals, transfers, and connecting you to support." },
 
   { "patterns": ["what can you do", "how can you help", "your functions", "what do you do"], "reply": "I can help check balances, guide deposits and withdrawals, assist with transfers, reset passwords, explain fees, and connect you to a human agent." },
 
-  { "patterns": ["bye", "goodbye", "see you", "see ya", "take care"], "reply": "Goodbye! 👋 Thanks for banking with CreditJambo. Have a great day." },
+  { "patterns": ["bye", "goodbye", "see you", "see ya", "take care"], "reply": "Goodbye! 👋 Thanks for banking with SavingDm. Have a great day." },
 
   { "patterns": ["thanks", "thank you", "appreciate"], "reply": "You're welcome! 😊 Anything else I can do for you?" },
 

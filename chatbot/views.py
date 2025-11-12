@@ -225,29 +225,33 @@ def find_reply(user_text):
     return "Sorry, I don't know that yet. Try asking about deposits, withdrawals, or working hours."
 
 
-# ---------- API views (unchanged behavior) ----------
+# ---------- API views ----------
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def message(request):
     """
-    POST JSON: { "message": "Hello" } - Auth required (Bearer token)
+    POST JSON: { "message": "Hello" }
+    Auth required (Bearer token).
     Saves conversation to DB and returns bot reply.
     """
-    user = request.user if request and hasattr(request, "user") else None
-    user_msg = request.data.get("message", "")
-    if user_msg is None:
+    user = request.user
+    user_msg = request.data.get("message", "").strip()
+
+    if not user_msg:
         return Response({"error": "message field required"}, status=status.HTTP_400_BAD_REQUEST)
 
     reply = find_reply(user_msg)
 
     try:
+        # ✅ Always save message linked to authenticated user
         Conversation.objects.create(
-            user=user if user and getattr(user, "is_authenticated", False) else None,
+            user=user,
             user_message=user_msg,
             bot_reply=reply
         )
     except Exception:
-        logger.exception("Failed to save conversation for user=%s", getattr(user, "pk", None))
+        logger.exception(f"Failed to save conversation for user={user.pk}")
 
     return Response({"reply": reply}, status=status.HTTP_200_OK)
 
@@ -256,7 +260,7 @@ def message(request):
 @permission_classes([IsAuthenticated])
 def history(request):
     """
-    GET: returns authenticated user's conversations, paginated.
+    GET: returns only the authenticated user's conversations.
     Query params:
       - page (int, default=1)
       - page_size (int, default=20)
@@ -264,8 +268,10 @@ def history(request):
     user = request.user
     page = int(request.query_params.get("page", 1))
     page_size = int(request.query_params.get("page_size", 20))
+
     qs = Conversation.objects.filter(user=user).order_by("-created_at")
     paginator = Paginator(qs, page_size)
+
     try:
         page_obj = paginator.page(page)
     except Exception:
@@ -303,6 +309,7 @@ def all_conversations(request):
     page_size = int(request.query_params.get("page_size", 20))
 
     paginator = Paginator(qs, page_size)
+
     try:
         page_obj = paginator.page(page)
     except Exception:
@@ -316,7 +323,6 @@ def all_conversations(request):
         "page_size": page_size,
         "results": serializer.data
     }, status=status.HTTP_200_OK)
-
 
 class AdminConversationsPagination(PageNumberPagination):
     page_size = 30

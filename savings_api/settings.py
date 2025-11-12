@@ -188,7 +188,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "daniel.mubu21@gmail.com"        # 👈 your Gmail or custom email
 EMAIL_HOST_PASSWORD = "cyzwwiettfpxwsuc"      # 👈 not your Gmail password!
-DEFAULT_FROM_EMAIL = "CreditJambo <no-reply@creditjambo.com>"
+DEFAULT_FROM_EMAIL = "SavingDm <no-reply@creditjambo.com>"
 
 # use PBKDF2 with SHA-512 as required by the brief
 PASSWORD_HASHERS = [

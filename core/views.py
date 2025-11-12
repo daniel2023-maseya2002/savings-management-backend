@@ -386,7 +386,7 @@ class DepositView(APIView):
                 # ✅ Deposit email
                 try:
                     send_branded_email(
-                        subject="Deposit Successful — CreditJambo",
+                        subject="Deposit Successful — SavingDm",
                         to_email=user.email,
                         template_name="emails/deposit_success.html",
                         context={"user": user, "amount": amount, "balance": new_balance},
@@ -420,7 +420,7 @@ class DepositView(APIView):
                                 if getattr(user, "last_low_balance_reminder", None) == date.today():
                                     return
                                 send_branded_email(
-                                    subject="Low Balance Warning — CreditJambo",
+                                    subject="Low Balance Warning — SavingDm",
                                     to_email=user.email,
                                     template_name="emails/low_balance_warning.html",
                                     context={
@@ -493,7 +493,7 @@ class WithdrawView(APIView):
         # ✅ Email
         try:
             send_branded_email(
-                subject="Withdrawal Successful — CreditJambo",
+                subject="Withdrawal Successful — SavingDm",
                 to_email=user.email,
                 template_name="emails/withdraw_success.html",
                 context={"user": user, "amount": amount, "balance": new_balance},
@@ -526,7 +526,7 @@ class WithdrawView(APIView):
                             if getattr(user, "last_low_balance_reminder", None) == date.today():
                                 return
                             send_branded_email(
-                                subject="Low Balance Warning — CreditJambo",
+                                subject="Low Balance Warning — SavingDm",
                                 to_email=user.email,
                                 template_name="emails/low_balance_warning.html",
                                 context={
@@ -693,7 +693,7 @@ class OTPRequestView(APIView):
         try:
             if channel == "email":
                 send_branded_email(
-                    subject="Your Verification Code — CreditJambo",
+                    subject="Your Verification Code — SavingDm",
                     to_email=user.email,
                     template_name="emails/otp_code.html",
                     context={"user": user, "otp": otp, "expire": expire},
@@ -701,7 +701,7 @@ class OTPRequestView(APIView):
             else:
                 send_otp_sms(
                     dest,
-                    f"Muraho {user.first_name}, your CreditJambo OTP is {otp}. It expires in 10 minutes."
+                    f"Muraho {user.first_name}, your SavingDm OTP is {otp}. It expires in 10 minutes."
                 )
         except Exception as e:
             print(f"⚠️ OTP send failed: {e}")
