@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'chatbot',
     'chatterbot.ext.django_chatterbot', 
+    'ai_analysis',
 ]
 
 MIDDLEWARE = [
@@ -219,3 +220,9 @@ SEND_WEBPUSH_NOTIFICATIONS = False
 # Firebase Cloud Messaging (FCM)
 SEND_FCM_NOTIFICATIONS = True
 FCM_SERVER_KEY = "<YOUR_FIREBASE_SERVER_KEY>"
+
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'

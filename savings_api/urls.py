@@ -30,6 +30,10 @@ urlpatterns = [
 
     # <-- Chatbot app should be included under /api/chat/ so frontend endpoint /api/chat/all/ matches
     path("api/chat/", include("chatbot.urls")),
+
+    # Ai_Analyst
+    path("api/ai/", include("ai_analysis.urls")),
+
 ]
 
 FCM_SERVER_KEY = "<your_firebase_server_key_here>"
