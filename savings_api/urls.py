@@ -14,11 +14,19 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+# savings_api/urls.py
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,  # <-- ADDED
+)
+from core import views as core_views
 
 urlpatterns = [
+
+    path("api/whoami-debug/", core_views.whoami_debug),
     path('admin/', admin.site.urls),
 
     # core api (if you already have other core endpoints)
@@ -27,14 +35,15 @@ urlpatterns = [
     # token endpoints (AllowAny by default)
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/token/verify/", TokenVerifyView.as_view(), name="token_verify"),  # <-- ADDED
 
-    # <-- Chatbot app should be included under /api/chat/ so frontend endpoint /api/chat/all/ matches
+    # Chatbot app included under /api/chat/
     path("api/chat/", include("chatbot.urls")),
 
     # Ai_Analyst
     path("api/ai/", include("ai_analysis.urls")),
-
 ]
 
 FCM_SERVER_KEY = "<your_firebase_server_key_here>"
 SEND_FCM_NOTIFICATIONS = True
+

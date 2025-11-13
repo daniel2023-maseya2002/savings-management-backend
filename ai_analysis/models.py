@@ -24,6 +24,8 @@ class TransactionFlag(models.Model):
     """
     Record that an admin flagged a transaction for review.
     """
+    FLAG_REASON_MAX = 512
+
     transaction_id = models.BigIntegerField()  # store id to avoid FK issues if transaction deleted
     transaction_ref = models.CharField(max_length=255, blank=True, null=True)
     flagged_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
@@ -33,6 +35,7 @@ class TransactionFlag(models.Model):
     resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="flags_resolved")
     resolved_at = models.DateTimeField(null=True, blank=True)
     note = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ("-created_at",)

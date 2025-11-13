@@ -14,7 +14,10 @@ from .views import (
     resolve_flag,
     add_report_note,
     list_audit_logs,
+    list_transaction_flags,
+    add_note_to_analysis,
 )
+from . import views
 
 urlpatterns = [
     path("admin/analysis/run/", run_analysis_async, name="ai-analysis-run-async"),
@@ -25,17 +28,21 @@ urlpatterns = [
     path("admin/analysis/<int:report_id>/masked/", get_report_masked, name="ai-analysis-get-masked"),
     path("admin/transaction/<int:tx_id>/", transaction_detail, name="ai-transaction-detail"),
 
-    # user freeze/unfreeze
-    path("admin/user/<int:user_id>/freeze/", freeze_user, name="ai-freeze-user"),
-    path("admin/user/<int:user_id>/unfreeze/", unfreeze_user, name="ai-unfreeze-user"),
+    
+    
 
-    # flag/resolve transaction
-    path("admin/transaction/<int:tx_id>/flag/", flag_transaction, name="ai-flag-transaction"),
-    path("admin/flag/<int:flag_id>/resolve/", resolve_flag, name="ai-resolve-flag"),
-
-    # report notes
-    path("admin/report/<int:report_id>/note/", add_report_note, name="ai-add-report-note"),
+    
 
     # audit logs
     path("admin/audit/", list_audit_logs, name="ai-audit-list"),
+    path("admin/analysis/<int:analysis_id>/note/", add_note_to_analysis, name="ai_admin_add_note"),
+
+    path("admin/transaction/<int:tx_id>/flag/", views.flag_transaction, name="ai-flag-transaction"),
+    path("admin/transaction/flags/", views.list_transaction_flags, name="ai-list-flags"),
+    path("admin/transaction/flag/<int:flag_id>/resolve/", views.resolve_flag, name="ai-resolve-flag"),
+    path("admin/transaction/flag/<int:flag_id>/", views.get_flag, name="ai-get-flag"),
+
+    # user freeze/unfreeze
+    path("admin/user/<int:user_id>/freeze/", views.freeze_user, name="ai-freeze-user"),
+    path("admin/user/<int:user_id>/unfreeze/", views.unfreeze_user, name="ai-unfreeze-user"),
 ]

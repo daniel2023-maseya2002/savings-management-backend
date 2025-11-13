@@ -1,8 +1,9 @@
 # ai_analysis/views.py
 import csv
 import io
+import logging
 from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
@@ -13,6 +14,8 @@ from .serializers import AnalysisReportSerializer, TransactionDetailSerializer, 
 from .ai_helpers import df_from_queryset, summary_stats, mask_anomalies_list, mask_clusters, mask_possibly_sensitive_string  # keep for sync fallback if needed
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
+from .utils import log_admin_action
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 # import Celery task
@@ -21,8 +24,11 @@ from .tasks import run_analysis_task
 # import your Transaction model
 from core.models import Transaction
 from django.db import transaction
+from django.db import transaction as db_transaction
 
 
+
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 @api_view(["POST"])
@@ -195,106 +201,139 @@ def transaction_detail(request, tx_id):
 
 # Freeze user
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication])
 @permission_classes([IsAdminUser])
 def freeze_user(request, user_id):
     admin = request.user
-    # cannot freeze superusers or yourself for safety (optional)
     target = get_object_or_404(User, pk=user_id)
+
     if getattr(target, "is_superuser", False):
         return Response({"detail": "Cannot freeze superuser."}, status=status.HTTP_400_BAD_REQUEST)
-
     if target == admin:
         return Response({"detail": "Cannot freeze your own account."}, status=status.HTTP_400_BAD_REQUEST)
 
-    with transaction.atomic():
+    with django_transaction.atomic():
         target.is_active = False
         target.save(update_fields=["is_active"])
-        # audit log
-        AuditLog.objects.create(
-            admin=admin,
-            action_type="freeze_user",
-            target_type="user",
-            target_id=target.pk,
-            metadata={"username": getattr(target, "username", None)}
-        )
-    return Response({"detail": f"User {user_id} frozen."}, status=status.HTTP_200_OK)
+        try:
+            AuditLog.objects.create(
+                admin=admin,
+                action_type="freeze_user",
+                target_type="user",
+                target_id=target.pk,
+                metadata={"username": getattr(target, "username", None)},
+            )
+        except Exception:
+            logger.exception("Failed to create AuditLog for freeze_user")
+
+    return Response({"detail": f"User {user_id} frozen successfully."}, status=status.HTTP_200_OK)
 
 
-# Unfreeze user
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication])
 @permission_classes([IsAdminUser])
 def unfreeze_user(request, user_id):
     admin = request.user
     target = get_object_or_404(User, pk=user_id)
-    with transaction.atomic():
+    with django_transaction.atomic():
         target.is_active = True
         target.save(update_fields=["is_active"])
-        AuditLog.objects.create(
-            admin=admin,
-            action_type="unfreeze_user",
-            target_type="user",
-            target_id=target.pk,
-            metadata={"username": getattr(target, "username", None)}
-        )
+        try:
+            AuditLog.objects.create(
+                admin=admin,
+                action_type="unfreeze_user",
+                target_type="user",
+                target_id=target.pk,
+                metadata={"username": getattr(target, "username", None)},
+            )
+        except Exception:
+            logger.exception("Failed to create AuditLog for unfreeze_user")
     return Response({"detail": f"User {user_id} unfrozen."}, status=status.HTTP_200_OK)
-
 
 # Flag a transaction
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication])
 @permission_classes([IsAdminUser])
 def flag_transaction(request, tx_id):
-    """
-    POST body: { "reason": "suspicious high amount", "note": "was approved by X" }
-    Creates a TransactionFlag and AuditLog.
-    """
     admin = request.user
-    data = request.data or {}
-    reason = data.get("reason", "")[:2000]
-    note = data.get("note", "")[:4000]
+    try:
+        payload = request.data or {}
+        reason = (payload.get("reason") or "").strip()
+        metadata = payload.get("metadata") or {}
+        transaction_ref = payload.get("transaction_ref")
 
-    # try to read transaction for ref (non-FK storage)
-    from core.models import Transaction  # local import to avoid circulars
-    tx = get_object_or_404(Transaction, pk=tx_id)
-    tx_ref = getattr(tx, "reference", None) or getattr(tx, "ref", None) or ""
+        if metadata and not isinstance(metadata, (dict, list)):
+            return Response({"detail": "metadata must be a JSON object or array"}, status=status.HTTP_400_BAD_REQUEST)
 
-    with transaction.atomic():
-        flag = TransactionFlag.objects.create(
-            transaction_id = tx.pk,
-            transaction_ref = str(tx_ref) if tx_ref else None,
-            flagged_by = admin,
-            reason = reason,
-            note = note
-        )
-        AuditLog.objects.create(
-            admin=admin,
-            action_type="flag_transaction",
-            target_type="transaction",
-            target_id=tx.pk,
-            metadata={"reason": reason, "note": note, "tx_ref": tx_ref}
-        )
-    serializer = TransactionFlagSerializer(flag)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+        with db_transaction.atomic():
+            flag = TransactionFlag.objects.create(
+                transaction_id=int(tx_id),
+                transaction_ref=transaction_ref,
+                flagged_by=admin,
+                reason=reason,
+                metadata=metadata,
+            )
+
+            # audit log (best-effort)
+            try:
+                AuditLog.objects.create(
+                    admin=admin,
+                    action_type="flag_transaction",
+                    target_type="transaction",
+                    target_id=flag.transaction_id,
+                    metadata={"flag_id": flag.pk, "reason": reason, "metadata": metadata},
+                )
+            except Exception:
+                logger.exception("Failed to create AuditLog for flag_transaction")
+
+        serializer = TransactionFlagSerializer(flag)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    except ValueError:
+        return Response({"detail": "Invalid transaction id"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as exc:
+        logger.exception("flag_transaction error tx_id=%s admin=%s: %s", tx_id, getattr(admin, "pk", None), exc)
+        from django.conf import settings
+        if getattr(settings, "DEBUG", False):
+            return Response({"detail": "Internal error", "error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"detail": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # Resolve flag (mark resolved)
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication])
 @permission_classes([IsAdminUser])
 def resolve_flag(request, flag_id):
     admin = request.user
+    payload = request.data or {}
+    note = payload.get("note", "")
+    resolved = payload.get("resolved", True)
+
     flag = get_object_or_404(TransactionFlag, pk=flag_id)
-    with transaction.atomic():
-        flag.resolved = True
+    with db_transaction.atomic():
+        flag.resolved = bool(resolved)
         flag.resolved_by = admin
         flag.resolved_at = timezone.now()
-        flag.save(update_fields=["resolved","resolved_by","resolved_at"])
-        AuditLog.objects.create(
-            admin=admin,
-            action_type="resolve_flag",
-            target_type="flag",
-            target_id=flag.pk,
-            metadata={"transaction_id": flag.transaction_id}
-        )
-    return Response({"detail":"Flag resolved"}, status=status.HTTP_200_OK)
+        if note:
+            if flag.note:
+                flag.note = f"{flag.note}\n\n[Resolved note by {admin.username} at {flag.resolved_at}]\n{note}"
+            else:
+                flag.note = note
+        flag.save(update_fields=["resolved", "resolved_by", "resolved_at", "note"])
+
+        # audit log
+        try:
+            AuditLog.objects.create(
+                admin=admin,
+                action_type="resolve_flag",
+                target_type="transaction_flag",
+                target_id=flag.pk,
+                metadata={"resolved": flag.resolved, "note": note},
+            )
+        except Exception:
+            logger.exception("Failed to create AuditLog for resolve_flag")
+
+    return Response(TransactionFlagSerializer(flag).data, status=status.HTTP_200_OK)
 
 
 # Add note to report
@@ -348,3 +387,55 @@ def list_audit_logs(request):
     items = q[start:end]
     serializer = AuditLogSerializer(items, many=True)
     return Response({"count": q.count(), "results": serializer.data})
+
+@api_view(["POST"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAdminUser])
+def add_note_to_analysis(request, analysis_id):
+    report = get_object_or_404(AnalysisReport, pk=analysis_id)
+    note_text = (request.data.get("note") or "").strip()
+    if not note_text:
+        return Response({"detail": "note field required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    note_entry = {
+        "by": getattr(request.user, "username", "unknown"),
+        "user_id": getattr(request.user, "pk", None),
+        "text": note_text,
+        "meta": request.data.get("meta", {}),
+        "ts": timezone.now().isoformat()
+    }
+
+    notes = (report.notes or [])
+    notes.append(note_entry)
+    report.notes = notes
+    report.save(update_fields=["notes"])
+
+    log_admin_action(request.user, "add_note_analysis", target_type="analysis", target_id=report.pk, payload={"note": note_text, "note_by": note_entry["by"]})
+
+    return Response({"detail": "Note added.", "note": note_entry}, status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAdminUser])
+def list_transaction_flags(request):
+    qs = TransactionFlag.objects.all().order_by("-created_at")
+    tx = request.query_params.get("transaction")
+    user_q = request.query_params.get("flagged_by")
+    if tx:
+        try:
+            qs = qs.filter(transaction_id=int(tx))
+        except ValueError:
+            return Response({"detail": "Invalid transaction query param"}, status=status.HTTP_400_BAD_REQUEST)
+    if user_q:
+        qs = qs.filter(flagged_by__username__icontains=user_q)
+
+    serializer = TransactionFlagSerializer(qs[:200], many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAdminUser])
+def get_flag(request, flag_id):
+    flag = get_object_or_404(TransactionFlag, pk=flag_id)
+    return Response(TransactionFlagSerializer(flag).data, status=status.HTTP_200_OK)

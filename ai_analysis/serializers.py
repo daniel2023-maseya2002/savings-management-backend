@@ -32,13 +32,37 @@ class TransactionDetailSerializer(serializers.ModelSerializer):
         return {"id": u.id, "username": getattr(u, "username", None)}
 
 class TransactionFlagSerializer(serializers.ModelSerializer):
-    flagged_by = serializers.CharField(source="flagged_by.username", read_only=True)
-    resolved_by = serializers.CharField(source="resolved_by.username", read_only=True)
+    flagged_by = serializers.SerializerMethodField()
+    resolved_by = serializers.SerializerMethodField()
 
     class Meta:
         model = TransactionFlag
-        fields = ["id","transaction_id","transaction_ref","flagged_by","reason","created_at","resolved","resolved_by","resolved_at","note"]
-        read_only_fields = ["id","flagged_by","created_at","resolved_by","resolved_at"]
+        fields = [
+            "id",
+            "transaction_id",
+            "transaction_ref",
+            "flagged_by",
+            "reason",
+            "created_at",
+            "resolved",
+            "resolved_by",
+            "resolved_at",
+            "note",
+            "metadata",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def get_flagged_by(self, obj):
+        u = obj.flagged_by
+        if u:
+            return {"id": u.pk, "username": getattr(u, "username", None)}
+        return None
+
+    def get_resolved_by(self, obj):
+        u = obj.resolved_by
+        if u:
+            return {"id": u.pk, "username": getattr(u, "username", None)}
+        return None
 
 
 class ReportNoteSerializer(serializers.ModelSerializer):

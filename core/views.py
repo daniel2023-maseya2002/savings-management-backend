@@ -1314,3 +1314,31 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             {"message": f"{updated} notifications marked as read."},
             status=status.HTTP_200_OK
         )
+
+@api_view(["GET"])
+@permission_classes([AllowAny])  # allow any so we can inspect header even when token invalid
+def whoami_debug(request):
+    """
+    Debug helper: returns the raw Authorization header Django sees,
+    plus request.user if authentication succeeded (may be AnonymousUser).
+    Use this to check that the Authorization header is reaching Django.
+    """
+    auth_hdr = request.META.get("HTTP_AUTHORIZATION")
+    # Try to include user info only if authenticated
+    user_info = None
+    try:
+        u = request.user
+        user_info = {
+            "is_authenticated": bool(getattr(u, "is_authenticated", False)),
+            "id": getattr(u, "id", None),
+            "username": getattr(u, "username", None),
+            "is_staff": getattr(u, "is_staff", False),
+        }
+    except Exception:
+        user_info = {"error": "could not read user"}
+
+    return Response({
+        "HTTP_AUTHORIZATION": auth_hdr,
+        "user": user_info,
+        "note": "If HTTP_AUTHORIZATION is None then your Authorization header was not received by Django."
+    })
