@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+from decimal import Decimal
+
+PEER_TRANSACTIONS_FEE_PERCENT = Decimal("0.10")  # 10% default
+# Optional: set to an existing user id to receive fees
+PEER_TRANSACTIONS_FEE_ACCOUNT_ID = None  # e.g. 1
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,6 +54,7 @@ INSTALLED_APPS = [
     'chatbot',
     'chatterbot.ext.django_chatterbot', 
     'ai_analysis',
+    'peer_transactions',
 ]
 
 MIDDLEWARE = [
@@ -226,3 +232,8 @@ CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+
+PEER_TRANSACTIONS_FEE_ACCOUNT_USERNAME = "saving_fee"
+PEER_TRANSACTIONS_FEE_PERCENT = Decimal("0.10")  # optional, default is 10%
+

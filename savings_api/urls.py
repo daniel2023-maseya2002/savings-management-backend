@@ -42,6 +42,12 @@ urlpatterns = [
 
     # Ai_Analyst
     path("api/ai/", include("ai_analysis.urls")),
+    # savings_api/urls.py (append)
+
+    # Peer_Transactions
+    path("api/peer/", include("peer_transactions.urls")),
+
+
 ]
 
 FCM_SERVER_KEY = "<your_firebase_server_key_here>"
