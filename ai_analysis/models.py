@@ -3,15 +3,12 @@ from django.db import models
 from django.conf import settings
 
 class AnalysisReport(models.Model):
-    """
-    Stores admin-triggered transaction analysis reports.
-    """
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     name = models.CharField(max_length=255, blank=True)
-    params = models.JSONField(null=True, blank=True)
-    summary = models.JSONField(null=True, blank=True)
-    anomalies = models.JSONField(null=True, blank=True)
-    clusters = models.JSONField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    params = models.JSONField(default=dict, blank=True)
+    summary = models.JSONField(default=dict, blank=True)
+    anomalies = models.JSONField(default=list, blank=True)
+    clusters = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -36,6 +33,9 @@ class TransactionFlag(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True)
     note = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)
+
+    analysis_report = models.ForeignKey("AnalysisReport", on_delete=models.SET_NULL, null=True, blank=True, related_name="flags")
+
 
     class Meta:
         ordering = ("-created_at",)
@@ -62,32 +62,25 @@ class ReportNote(models.Model):
 
 
 class AuditLog(models.Model):
-    """
-    Generic audit log for admin actions.
-    action_type: e.g., 'freeze_user','unfreeze_user','flag_transaction','resolve_flag','add_report_note'
-    target_type: 'user'|'transaction'|'report'|'flag' ...
-    target_id: integer id of the target
-    admin: FK to user who performed action
-    metadata: JSONField with optional context
-    """
-    ACTION_CHOICES = [
-        ("freeze_user","freeze_user"),
-        ("unfreeze_user","unfreeze_user"),
-        ("flag_transaction","flag_transaction"),
-        ("resolve_flag","resolve_flag"),
-        ("add_report_note","add_report_note"),
-        ("update_report_note","update_report_note"),
+    ADMIN_ACTIONS = [
+        ("freeze_user", "freeze_user"),
+        ("unfreeze_user", "unfreeze_user"),
+        ("flag_transaction", "flag_transaction"),
+        ("resolve_flag", "resolve_flag"),
+        ("add_note", "add_note"),
+        ("export_report", "export_report"),
     ]
 
-    admin = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="audit_actions")
-    action_type = models.CharField(max_length=64, choices=ACTION_CHOICES)
-    target_type = models.CharField(max_length=64)
+    admin = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    action_type = models.CharField(max_length=64, choices=ADMIN_ACTIONS)
+    target_type = models.CharField(max_length=64, blank=True, null=True)
     target_id = models.BigIntegerField(null=True, blank=True)
-    metadata = models.JSONField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    admin_ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True, null=True)
+    request_id = models.CharField(max_length=64, blank=True, null=True)
 
     class Meta:
         ordering = ("-created_at",)
-
-    def __str__(self):
-        return f"{self.action_type} by {getattr(self.admin,'username',None)} on {self.target_type}:{self.target_id}"

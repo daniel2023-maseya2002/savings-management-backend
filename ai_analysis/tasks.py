@@ -5,6 +5,10 @@ from .models import AnalysisReport
 from .ai_helpers import df_from_queryset, summary_stats, detect_anomalies_isolation, cluster_transactions
 # adjust the import to your Transaction model
 from core.models import Transaction
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib.auth import get_user_model
+
 
 @shared_task(bind=True)
 def run_analysis_task(self, params):
@@ -31,3 +35,20 @@ def run_analysis_task(self, params):
     )
     # return report id to result backend
     return {"report_id": report.id}
+
+@shared_task
+def send_admin_notification(payload):
+    """
+    Example: send an email to admins or write to DB.
+    payload: dict with keys type, flag_id, transaction_id, etc.
+    This is a simple example - replace with FCM or other mechanisms.
+    """
+    User = get_user_model()
+    admins = User.objects.filter(is_staff=True, is_active=True).values_list("email", flat=True)
+    subject = f"Admin notification: {payload.get('type')}"
+    message = f"Details:\n\n{payload}"
+    # send email (ensure email backend configured) - useful for dev
+    if admins:
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, list(admins), fail_silently=True)
+    # Could also write a DB Notification object or send FCM push
+    return True
