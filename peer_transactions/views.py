@@ -40,9 +40,9 @@ FEE_ACCOUNT_ID = getattr(
     None,
 )
 
-# Optional notifications app
+# Optional notifications app (if you had a separate one)
 try:
-    from notifications.models import Notification
+    from notifications.models import Notification  # type: ignore
 except Exception:  # noqa
     Notification = None
 
@@ -223,12 +223,12 @@ def _send_transfer_notifications(
         </html>
         """
 
-    # ----- In-app notifications (if app exists) -----
+    # ----- In-app notifications (if a Notification model exists) -----
     if Notification:
         try:
             Notification.objects.create(
                 user=sender,
-                notif_type=Notification.TYPE_WITHDRAW,  # or a new TYPE_PEER_TRANSFER_OUT if you add it
+                notif_type=getattr(Notification, "TYPE_WITHDRAW", "WITHDRAW_ALERT"),
                 title=sender_title,
                 message=sender_msg,
                 meta={
@@ -248,7 +248,7 @@ def _send_transfer_notifications(
         try:
             Notification.objects.create(
                 user=recipient,
-                notif_type=Notification.TYPE_DEPOSIT,  # or a new TYPE_PEER_TRANSFER_IN if you add it
+                notif_type=getattr(Notification, "TYPE_DEPOSIT", "DEPOSIT_CONFIRMED"),
                 title=recipient_title,
                 message=recipient_msg,
                 meta={
@@ -337,7 +337,9 @@ def perform_atomic_transfer(transfer: "Transfer"):
 
         sender_user = locked_by_id[sender.id]
         recipient_user = locked_by_id[recipient.id]
-        fee_user_locked = locked_by_id.get(fee_account_user.id) if fee_account_user else None
+        fee_user_locked = (
+            locked_by_id.get(fee_account_user.id) if fee_account_user else None
+        )
 
         # Treat None as 0.00 just in case
         sender_balance = sender_user.balance or Decimal("0.00")
