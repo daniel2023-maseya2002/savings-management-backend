@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+from decimal import Decimal
+
+PEER_TRANSACTIONS_FEE_PERCENT = Decimal("0.10")  # 10% default
+# Optional: set to an existing user id to receive fees
+PEER_TRANSACTIONS_FEE_ACCOUNT_ID = None  # e.g. 1
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +31,7 @@ SECRET_KEY = 'django-insecure-as1nxm@b*&339*hakqgj0hepa=p#=fkqxq163*!!ch8p+t@pn8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver"]
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -46,6 +51,12 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt.token_blacklist',
     'django.contrib.humanize',
+    'chatbot',
+    'chatterbot.ext.django_chatterbot', 
+    'ai_analysis',
+    'peer_transactions',
+    'ai_assistant',
+    'feedback',
 ]
 
 MIDDLEWARE = [
@@ -168,11 +179,27 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
+from corsheaders.defaults import default_headers, default_methods
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    'http://192.168.1.68:19006',  # Expo web/devtools if needed
+    'exp://192.168.1.68:19000', 
 ]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "authorization",
+    "content-type",
+    "x-requested-with",
+]
+
+CORS_ALLOW_METHODS = list(default_methods)  # GET, POST, OPTIONS, etc.
+# Optionally restrict to:
+# CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 # --- custom user model ---
 AUTH_USER_MODEL = "core.User"
@@ -184,7 +211,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "daniel.mubu21@gmail.com"        # 👈 your Gmail or custom email
 EMAIL_HOST_PASSWORD = "cyzwwiettfpxwsuc"      # 👈 not your Gmail password!
-DEFAULT_FROM_EMAIL = "CreditJambo <no-reply@creditjambo.com>"
+DEFAULT_FROM_EMAIL = "SavingDm <no-reply@creditjambo.com>"
 
 # use PBKDF2 with SHA-512 as required by the brief
 PASSWORD_HASHERS = [
@@ -194,6 +221,13 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
     "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
+
+# Optional: configure ChatterBot storage if desired
+CHATTERBOT = {
+    'name': 'MyDjangoBot',
+    'trainer': 'chatterbot.trainers.ChatterBotCorpusTrainer',
+    'storage_adapter': 'chatterbot.storage.SQLStorageAdapter',
+}   
 
 LOW_BALANCE_THRESHOLD = 50.00
 
@@ -208,3 +242,21 @@ SEND_WEBPUSH_NOTIFICATIONS = False
 # Firebase Cloud Messaging (FCM)
 SEND_FCM_NOTIFICATIONS = True
 FCM_SERVER_KEY = "<YOUR_FIREBASE_SERVER_KEY>"
+
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+
+PEER_TRANSACTIONS_FEE_ACCOUNT_USERNAME = "saving_fee"
+PEER_TRANSACTIONS_FEE_PERCENT = Decimal("0.10")  # optional, default is 10%
+
+
+# AI / Ollama settings (settings.py)
+AI_ASSISTANT_USE_OLLAMA = True
+OLLAMA_API_URL = "http://localhost:11434"       # default Ollama HTTP API
+OLLAMA_MODEL_NAME = "llama2:latest"             # use the model you pulled
+AI_ASSISTANT_OLLAMA_TIMEOUT = 60                # seconds
+AI_ASSISTANT_HISTORY_WINDOW = 30                # messages to include in history

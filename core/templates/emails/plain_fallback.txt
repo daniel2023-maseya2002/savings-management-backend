@@ -1,4 +1,4 @@
-CreditJambo Notification
+SavingDm Notification
 
 Hello {{ user.first_name }},
 Muraho {{ user.first_name }},

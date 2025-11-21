@@ -100,7 +100,7 @@ def send_otp_email(user, otp, expire):
     """Send OTP email using your custom HTML template."""
     try:
         send_branded_email(
-            subject="Your Verification Code — CreditJambo",
+            subject="Your Verification Code — SavingDm",
             to_email=user.email,
             template_name="emails/otp_code.html",
             context={

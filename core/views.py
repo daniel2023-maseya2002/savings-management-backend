@@ -46,7 +46,7 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from .utils import generate_otp, get_client_ip
 from .notify import send_otp_email, send_otp_sms
-from datetime import timedelta
+from datetime import date, timedelta
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.generics import UpdateAPIView, ListAPIView
@@ -386,7 +386,7 @@ class DepositView(APIView):
                 # ✅ Deposit email
                 try:
                     send_branded_email(
-                        subject="Deposit Successful — CreditJambo",
+                        subject="Deposit Successful — SavingDm",
                         to_email=user.email,
                         template_name="emails/deposit_success.html",
                         context={"user": user, "amount": amount, "balance": new_balance},
@@ -420,7 +420,7 @@ class DepositView(APIView):
                                 if getattr(user, "last_low_balance_reminder", None) == date.today():
                                     return
                                 send_branded_email(
-                                    subject="Low Balance Warning — CreditJambo",
+                                    subject="Low Balance Warning — SavingDm",
                                     to_email=user.email,
                                     template_name="emails/low_balance_warning.html",
                                     context={
@@ -493,7 +493,7 @@ class WithdrawView(APIView):
         # ✅ Email
         try:
             send_branded_email(
-                subject="Withdrawal Successful — CreditJambo",
+                subject="Withdrawal Successful — SavingDm",
                 to_email=user.email,
                 template_name="emails/withdraw_success.html",
                 context={"user": user, "amount": amount, "balance": new_balance},
@@ -526,7 +526,7 @@ class WithdrawView(APIView):
                             if getattr(user, "last_low_balance_reminder", None) == date.today():
                                 return
                             send_branded_email(
-                                subject="Low Balance Warning — CreditJambo",
+                                subject="Low Balance Warning — SavingDm",
                                 to_email=user.email,
                                 template_name="emails/low_balance_warning.html",
                                 context={
@@ -693,7 +693,7 @@ class OTPRequestView(APIView):
         try:
             if channel == "email":
                 send_branded_email(
-                    subject="Your Verification Code — CreditJambo",
+                    subject="Your Verification Code — SavingDm",
                     to_email=user.email,
                     template_name="emails/otp_code.html",
                     context={"user": user, "otp": otp, "expire": expire},
@@ -701,7 +701,7 @@ class OTPRequestView(APIView):
             else:
                 send_otp_sms(
                     dest,
-                    f"Muraho {user.first_name}, your CreditJambo OTP is {otp}. It expires in 10 minutes."
+                    f"Muraho {user.first_name}, your SavingDm OTP is {otp}. It expires in 10 minutes."
                 )
         except Exception as e:
             print(f"⚠️ OTP send failed: {e}")
@@ -1314,3 +1314,31 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             {"message": f"{updated} notifications marked as read."},
             status=status.HTTP_200_OK
         )
+
+@api_view(["GET"])
+@permission_classes([AllowAny])  # allow any so we can inspect header even when token invalid
+def whoami_debug(request):
+    """
+    Debug helper: returns the raw Authorization header Django sees,
+    plus request.user if authentication succeeded (may be AnonymousUser).
+    Use this to check that the Authorization header is reaching Django.
+    """
+    auth_hdr = request.META.get("HTTP_AUTHORIZATION")
+    # Try to include user info only if authenticated
+    user_info = None
+    try:
+        u = request.user
+        user_info = {
+            "is_authenticated": bool(getattr(u, "is_authenticated", False)),
+            "id": getattr(u, "id", None),
+            "username": getattr(u, "username", None),
+            "is_staff": getattr(u, "is_staff", False),
+        }
+    except Exception:
+        user_info = {"error": "could not read user"}
+
+    return Response({
+        "HTTP_AUTHORIZATION": auth_hdr,
+        "user": user_info,
+        "note": "If HTTP_AUTHORIZATION is None then your Authorization header was not received by Django."
+    })
