@@ -47,6 +47,9 @@ urlpatterns = [
     # Peer_Transactions
     path("api/peer/", include("peer_transactions.urls")),
 
+    # Ai_Assistance
+    path("api/ai/", include("ai_assistant.urls")),
+
 
 ]
 

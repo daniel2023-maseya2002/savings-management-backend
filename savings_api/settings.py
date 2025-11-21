@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'chatterbot.ext.django_chatterbot', 
     'ai_analysis',
     'peer_transactions',
+    'ai_assistant',
 ]
 
 MIDDLEWARE = [
@@ -177,6 +178,8 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
+from corsheaders.defaults import default_headers, default_methods
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -184,6 +187,18 @@ CORS_ALLOWED_ORIGINS = [
     'http://192.168.1.68:19006',  # Expo web/devtools if needed
     'exp://192.168.1.68:19000', 
 ]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "authorization",
+    "content-type",
+    "x-requested-with",
+]
+
+CORS_ALLOW_METHODS = list(default_methods)  # GET, POST, OPTIONS, etc.
+# Optionally restrict to:
+# CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 # --- custom user model ---
 AUTH_USER_MODEL = "core.User"
@@ -237,3 +252,10 @@ CELERY_RESULT_SERIALIZER = 'json'
 PEER_TRANSACTIONS_FEE_ACCOUNT_USERNAME = "saving_fee"
 PEER_TRANSACTIONS_FEE_PERCENT = Decimal("0.10")  # optional, default is 10%
 
+
+# AI / Ollama settings (settings.py)
+AI_ASSISTANT_USE_OLLAMA = True
+OLLAMA_API_URL = "http://localhost:11434"       # default Ollama HTTP API
+OLLAMA_MODEL_NAME = "llama2:latest"             # use the model you pulled
+AI_ASSISTANT_OLLAMA_TIMEOUT = 60                # seconds
+AI_ASSISTANT_HISTORY_WINDOW = 30                # messages to include in history
