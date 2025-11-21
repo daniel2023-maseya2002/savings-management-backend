@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'ai_analysis',
     'peer_transactions',
     'ai_assistant',
+    'feedback',
 ]
 
 MIDDLEWARE = [

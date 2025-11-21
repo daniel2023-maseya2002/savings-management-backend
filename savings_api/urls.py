@@ -51,6 +51,10 @@ urlpatterns = [
     path("api/ai/", include("ai_assistant.urls")),
 
 
+    # Feedback
+
+     path("api/feedback/", include("feedback.urls")),
+
 ]
 
 FCM_SERVER_KEY = "<your_firebase_server_key_here>"
