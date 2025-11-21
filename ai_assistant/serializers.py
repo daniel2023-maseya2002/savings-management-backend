@@ -5,7 +5,11 @@ from .models import AIConversation, AIMessage
 
 
 class AIChatRequestSerializer(serializers.Serializer):
-    mode = serializers.ChoiceField(choices=["budget", "transactions", "notifications", "general"], required=False, default="general")
+    mode = serializers.ChoiceField(
+        choices=["budget", "transactions", "notifications", "general", "analytics"],  # Added analytics
+        required=False, 
+        default="general"
+    )
     message = serializers.CharField(min_length=1, max_length=4000)
     conversation_id = serializers.UUIDField(required=False, allow_null=True)
 
@@ -89,11 +93,32 @@ class AIConversationListSerializer(serializers.ModelSerializer):
 class AIConversationCreateSerializer(serializers.ModelSerializer):
     """
     Creating a conversation: minimal fields from frontend.
+    Both title and mode are optional with sensible defaults.
     """
+    title = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        default='New Conversation'
+    )
+    mode = serializers.ChoiceField(
+        choices=["budget", "transactions", "notifications", "general", "analytics"],  # Added analytics
+        required=False,
+        default="general"
+    )
+    
     class Meta:
         model = AIConversation
         fields = ("id", "title", "mode")
         read_only_fields = ("id",)
+    
+    def create(self, validated_data):
+        # Ensure defaults are applied if fields are missing or empty
+        if 'title' not in validated_data or not validated_data.get('title'):
+            validated_data['title'] = 'New Conversation'
+        if 'mode' not in validated_data:
+            validated_data['mode'] = 'general'
+        return super().create(validated_data)
 
 
 class AIConversationDetailSerializer(serializers.ModelSerializer):

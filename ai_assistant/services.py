@@ -21,7 +21,7 @@ from .models import AIConversation, AIMessage
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
-AIMode = Literal["budget", "transactions", "notifications", "general"]
+AIMode = Literal["budget", "transactions", "notifications", "general", "analytics"]
 
 
 @dataclass
@@ -69,11 +69,10 @@ def _build_user_context(user: User) -> str:
             for t in recent_tx:
                 tx_type = getattr(t, "tx_type", "unknown")
                 amount = getattr(t, "amount", 0)
-                currency = getattr(t, "currency", "USD")
-                status = getattr(t, "status", "unknown")
                 created_at = getattr(t, "created_at", None)
                 ts = created_at.isoformat() if created_at else "unknown_time"
-                lines.append(f"  • [{ts}] {tx_type} {amount} {currency} (status={status})")
+                # Note: Transaction model doesn't have status or currency field
+                lines.append(f"  • [{ts}] {tx_type} ${amount}")
     except Exception:
         # skip if no Transaction model or error
         pass
@@ -140,6 +139,11 @@ def _build_system_prompt(mode: AIMode) -> str:
         extra = (
             "\nMode: NOTIFICATIONS\n"
             "Focus on summarizing and ranking the most important and urgent notifications. Tell the user what to do first and why.\n"
+        )
+    elif mode == "analytics":
+        extra = (
+            "\nMode: ANALYTICS\n"
+            "Focus on providing analytical insights, reports, and data-driven recommendations based on transaction patterns and user behavior.\n"
         )
     else:
         extra = (
@@ -315,6 +319,12 @@ def _fallback_reply_for_mode(mode: AIMode, conversation: Optional[AIConversation
         else:
             reply = "No urgent notifications were found in recent conversation history. Provide your notifications and I'll prioritize them."
 
+    elif mode == "analytics":
+        reply = (
+            "Analytics assistant (mock): I can help you analyze system-wide data, user performance, and transaction patterns.\n"
+            "Please provide specific queries about metrics, trends, or reports you'd like to see."
+        )
+
     else:
         reply = (
             "Hello — I'm the SavingDM assistant (mock). I can help with budgeting, transaction analysis, "
@@ -378,7 +388,7 @@ def ask_ai_assistant(
          generator -> yields textual chunks (str)
          finalizer -> callable() -> AIResponse (final aggregated response)
     """
-    if mode not in ("budget", "transactions", "notifications", "general"):
+    if mode not in ("budget", "transactions", "notifications", "general", "analytics"):
         mode = "general"
 
     if conversation is not None and getattr(conversation, "mode", None):

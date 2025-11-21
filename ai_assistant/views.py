@@ -27,6 +27,7 @@ from .serializers import (
     AIMessageUpdateSerializer,
 )
 from .services import ask_ai_assistant
+from .admin_services import ask_admin_ai_assistant  # Admin-specific AI service
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.encoding import force_str
 
@@ -397,13 +398,24 @@ def assistant_stream(request):
     gen = None
     finalizer = None
     try:
-        maybe = ask_ai_assistant(
-            user=user,
-            message=message,
-            mode=mode,
-            conversation=conv_obj,
-            stream=True
-        )
+        # Use admin AI service for staff users, regular service for others
+        if user.is_staff:
+            logger.debug("Using admin AI service for staff user %s", user.id)
+            maybe = ask_admin_ai_assistant(
+                admin_user=user,
+                message=message,
+                mode=mode,
+                conversation=conv_obj,
+                stream=True
+            )
+        else:
+            maybe = ask_ai_assistant(
+                user=user,
+                message=message,
+                mode=mode,
+                conversation=conv_obj,
+                stream=True
+            )
         
         if isinstance(maybe, tuple) and len(maybe) == 2:
             # Got streaming generator + finalizer
