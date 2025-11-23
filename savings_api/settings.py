@@ -10,9 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 from datetime import timedelta
 from decimal import Decimal
+import dj_database_url
 
 PEER_TRANSACTIONS_FEE_PERCENT = Decimal("0.10")  # 10% default
 # Optional: set to an existing user id to receive fees
@@ -95,15 +97,16 @@ WSGI_APPLICATION = 'savings_api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "savings_db",
-        "USER": "savings_user",
-        "PASSWORD": "savings_pass",
-        "HOST": "localhost",
-        "PORT": "5433",
-    }
+    "default": dj_database_url.config(
+        default=os.environ.get(
+            "DATABASE_URL",
+            "postgres://postgres:postgres@localhost:5433/postgres"
+        ),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 
