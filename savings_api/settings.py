@@ -209,6 +209,12 @@ CORS_ALLOW_METHODS = list(default_methods)  # GET, POST, OPTIONS, etc.
 # Optionally restrict to:
 # CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.vercel.app",
+    "https://creditjambo-backend.fly.dev",
+]
+
+
 # --- custom user model ---
 AUTH_USER_MODEL = "core.User"
 
