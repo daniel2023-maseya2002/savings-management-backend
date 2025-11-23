@@ -181,8 +181,12 @@ SIMPLE_JWT = {
 
 from corsheaders.defaults import default_headers, default_methods
 
+CORS_ALLOW_ALL_ORIGINS = True  # good for production
+
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     'http://192.168.1.68:19006',  # Expo web/devtools if needed
@@ -195,6 +199,10 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
     "content-type",
     "x-requested-with",
+]
+# ✅ Allow ALL deployments of this project on Vercel:
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://savings-management-frontend.*\.vercel\.app$",
 ]
 
 CORS_ALLOW_METHODS = list(default_methods)  # GET, POST, OPTIONS, etc.
