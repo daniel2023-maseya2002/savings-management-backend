@@ -28,16 +28,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-as1nxm@b*&339*hakqgj0hepa=p#=fkqxq163*!!ch8p+t@pn8'
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY",
+    "django-insecure-as1nxm@b*&339*hakqgj0hepa=p#=fkqxq163*!!ch8p+t@pn8"  # fallback for local dev
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    ".onrender.com", 
-]
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1,.onrender.com"
+).split(",")
 
 
 # Application definition
@@ -51,7 +53,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     #Local Apps
-    'core',
+    'core.apps.CoreConfig',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -245,8 +247,8 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "daniel.mubu21@gmail.com"        # 👈 your Gmail or custom email
-EMAIL_HOST_PASSWORD = "cyzwwiettfpxwsuc"      # 👈 not your Gmail password!
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "daniel.mubu21@gmail.com")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "cyzwwiettfpxwsuc")
 DEFAULT_FROM_EMAIL = "SavingDm <no-reply@creditjambo.com>"
 
 # use PBKDF2 with SHA-512 as required by the brief
@@ -291,8 +293,8 @@ PEER_TRANSACTIONS_FEE_PERCENT = Decimal("0.10")  # optional, default is 10%
 
 
 # AI / Ollama settings (settings.py)
-AI_ASSISTANT_USE_OLLAMA = True
-OLLAMA_API_URL = "http://localhost:11434"       # default Ollama HTTP API
+AI_ASSISTANT_USE_OLLAMA = os.environ.get("AI_ASSISTANT_USE_OLLAMA", "False") == "True"
+OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434")     # default Ollama HTTP API
 OLLAMA_MODEL_NAME = "llama2:latest"             # use the model you pulled
 AI_ASSISTANT_OLLAMA_TIMEOUT = 60                # seconds
 AI_ASSISTANT_HISTORY_WINDOW = 30                # messages to include in history
