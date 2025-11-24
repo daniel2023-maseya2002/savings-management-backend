@@ -212,9 +212,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    'http://192.168.1.68:19006',  # Expo web/devtools if needed
-    'exp://192.168.1.68:19000', 
+    "http://192.168.1.68:19006",
+    "exp://192.168.1.68:19000",
+    "https://savings-management-frontend-hbal-mr924bc5t.vercel.app",  # Vercel frontend
 ]
+
 
 CORS_ALLOW_CREDENTIALS = True
 
