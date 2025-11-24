@@ -33,7 +33,11 @@ SECRET_KEY = 'django-insecure-as1nxm@b*&339*hakqgj0hepa=p#=fkqxq163*!!ch8p+t@pn8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    ".onrender.com", 
+]
 
 
 # Application definition
@@ -72,6 +76,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
 
 ROOT_URLCONF = 'savings_api.urls'
@@ -99,15 +104,26 @@ WSGI_APPLICATION = 'savings_api.wsgi.application'
 
 
 DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get(
-            "DATABASE_URL",
-            "postgres://postgres:postgres@localhost:5433/postgres"
-        ),
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
+    "default": {
+        # Local dev default (your existing local DB)
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("LOCAL_DB_NAME", "savings_db"),
+        "USER": os.environ.get("LOCAL_DB_USER", "savings_user"),
+        "PASSWORD": os.environ.get("LOCAL_DB_PASSWORD", "savings_pass"),
+        "HOST": os.environ.get("LOCAL_DB_HOST", "localhost"),
+        "PORT": os.environ.get("LOCAL_DB_PORT", "5433"),
+    }
 }
+
+# On Render: override with DATABASE_URL if present
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL:
+    DATABASES["default"] = dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=600,
+        ssl_require=True,  # Render Postgres uses SSL
+    )
+
 
 
 # Password validation
@@ -144,7 +160,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATIC_URL = 'static/'
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -214,7 +232,8 @@ CORS_ALLOW_METHODS = list(default_methods)  # GET, POST, OPTIONS, etc.
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.vercel.app",
-    "https://creditjambo-backend.fly.dev",
+    # "https://creditjambo-backend.fly.dev",
+    "https://*.onrender.com",
 ]
 
 
