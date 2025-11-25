@@ -241,8 +241,8 @@ class LoginView(APIView):
             print("🔥 LOGIN ERROR:", e)
             traceback.print_exc()
             return Response(
-                {"detail": f"Server error: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"detail": "Temporary database error. Please try again in a moment."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
 class AdminLoginActivityListView(ListAPIView):

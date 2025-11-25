@@ -120,11 +120,15 @@ DATABASES = {
 # On Render: override with DATABASE_URL if present
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
-    DATABASES["default"] = dj_database_url.parse(
+    db_from_env = dj_database_url.parse(
         DATABASE_URL,
-        conn_max_age=600,
-        ssl_require=True,  # Render Postgres uses SSL
+        ssl_require=True,
     )
+    # 🔴 IMPORTANT: force new DB connection per request
+    db_from_env["CONN_MAX_AGE"] = 0
+
+    DATABASES["default"] = db_from_env
+
 
 
 
