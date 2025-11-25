@@ -7,18 +7,9 @@ class CoreConfig(AppConfig):
     name = "core"
 
     def ready(self):
-        """
-        In production (Render), automatically create an admin user
-        using environment variables IF it does not exist yet.
-        """
         import os
-        from django.conf import settings
         from django.contrib.auth import get_user_model
         from django.db.utils import OperationalError, ProgrammingError
-
-        # Only run this logic in production (not on your local dev)
-        if settings.DEBUG:
-            return
 
         User = get_user_model()
 
@@ -26,22 +17,50 @@ class CoreConfig(AppConfig):
         email = os.environ.get("ADMIN_EMAIL")
         password = os.environ.get("ADMIN_PASSWORD")
 
-        # If env vars are not set, do nothing
         if not (username and email and password):
-            print("[init] ADMIN_* environment variables not set, skipping auto-superuser.")
+            print("[init] ADMIN_* env vars not all set, skipping superuser creation.")
             return
 
         try:
-            if not User.objects.filter(username=username).exists():
-                print(f"[init] Creating default superuser: {username}")
-                User.objects.create_superuser(
-                    username=username,
-                    email=email,
-                    password=password,
-                )
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={
+                    "email": email,
+                    "is_superuser": True,
+                    "is_staff": True,
+                },
+            )
+
+            if created:
+                # Newly created → set password and flags
+                user.set_password(password)
+                user.is_superuser = True
+                user.is_staff = True
+                user.save()
+                print(f"[init] Created superuser '{username}'")
             else:
-                print(f"[init] Superuser {username} already exists.")
+                # Already exists → make sure it really is admin and the password matches env
+                updated = False
+
+                if not user.is_superuser or not user.is_staff:
+                    user.is_superuser = True
+                    user.is_staff = True
+                    updated = True
+
+                if user.email != email:
+                    user.email = email
+                    updated = True
+
+                # Always reset password from env (so ADMIN_PASSWORD is the truth)
+                user.set_password(password)
+                updated = True
+
+                if updated:
+                    user.save()
+                    print(f"[init] Updated superuser '{username}' from env vars")
+                else:
+                    print(f"[init] Superuser '{username}' already correct")
+
         except (OperationalError, ProgrammingError):
-            # Happens during first migrate when DB tables don't exist yet
-            print("[init] Could not create superuser yet (DB not ready).")
+            print("[init] Could not create/update superuser yet (DB not ready).")
             return
