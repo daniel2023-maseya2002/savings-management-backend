@@ -249,14 +249,21 @@ CSRF_TRUSTED_ORIGINS = [
 AUTH_USER_MODEL = "core.User"
 
 # DEV: prints emails to console
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "daniel.mubu21@gmail.com")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "cyzwwiettfpxwsuc")
-DEFAULT_FROM_EMAIL = "SavingDm <no-reply@creditjambo.com>"
+USE_CONSOLE_EMAIL = os.environ.get("USE_CONSOLE_EMAIL", "0") == "1"
 
+if USE_CONSOLE_EMAIL:
+    # On Render: don't hit real SMTP, just print to console/logs
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    # Local dev: real Gmail SMTP
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = "smtp.gmail.com"
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = "daniel.mubu21@gmail.com"
+    EMAIL_HOST_PASSWORD = "cyzwwiettfpxwsuc"
+    DEFAULT_FROM_EMAIL = "SavingDm <no-reply@creditjambo.com>"
+    
 # use PBKDF2 with SHA-512 as required by the brief
 PASSWORD_HASHERS = [
     "savings_api.hashers.PBKDF2SHA512PasswordHasher",  # <-- replace 'project' with your project package
